@@ -271,3 +271,28 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     );
   }
 
+  void _submitForm() {
+    // Implement form submission logic
+
+    // Show success dialog
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Thank You!'),
+            content: const Text(
+              'Your message has been sent successfully. We\'ll get back to you soon.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Return to previous screen
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+}
