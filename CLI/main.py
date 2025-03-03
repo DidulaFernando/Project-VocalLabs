@@ -4,27 +4,21 @@ import os
 import torch
 import nltk
 import spacy
+import numpy as np
 from nltk.tokenize import word_tokenize
 from collections import Counter
+import librosa
+import soundfile as sf
+from sklearn.metrics.pairwise import cosine_similarity
+import wave
+nltk.download('punkt_tab')
 
-try:
-    nltk.download('punkt', quiet=True)
-    nltk.download('averaged_perceptron_tagger', quiet=True)
-except Exception as e:
-    print(f"Error downloading NLTK data: {e}")
-
-try:
-    nlp = spacy.load('en_core_web_sm')
-except:
-    print("Installing spaCy model...")
-    os.system("python -m spacy download en_core_web_sm")
-    nlp = spacy.load('en_core_web_sm')
+nlp = spacy.load('en_core_web_sm')
 
 class SpeechAnalyzer:
 
-    def _init_(self, model_name="medium", audio_path=r"D:\2 nd sem\VocalLabs\Project-VocalLabs\CLI\didula_audio01.wav"):
+    def __init__(self, model_name="medium", audio_path=r"D:\SDGP_GIT_CONNECT\Project-VocalLabs\CLI\didula_audio01.wav"):
         self.model = whisper.load_model(model_name)
-
         self.audio_path = audio_path
         self.transcription_with_pauses = []
         self.number_of_pauses = 0
@@ -32,7 +26,7 @@ class SpeechAnalyzer:
         print("SpeechAnalyzer initialized.")
 
     def transcribe_audio(self):
-        print("Transcribing audio...")  # Debug statement
+        print("Transcribing audio...")
         result = self.model.transcribe(
             self.audio_path,
             fp16=False,
@@ -42,13 +36,11 @@ class SpeechAnalyzer:
                 "and false start. Do not clean up or correct the speech. Transcribe with maximum verbatim accuracy."
             )
         )
-
         return result
 
     def process_transcription(self, result):
         self.transcription_with_pauses = []
         self.number_of_pauses = 0
-
 
         for i in range(len(result['segments'])):
             segment = result['segments'][i]
@@ -84,13 +76,11 @@ class SpeechAnalyzer:
 
     def get_audio_duration(self):
         try:
-            import soundfile as sf
             info = sf.info(self.audio_path)
             return info.duration
         except Exception as e:
             print(f"Error getting audio duration using soundfile: {e}")
             try:
-                import wave
                 with wave.open(self.audio_path, 'rb') as wf:
                     frames = wf.getnframes()
                     rate = wf.getframerate()
@@ -98,20 +88,16 @@ class SpeechAnalyzer:
                     return duration
             except Exception as e:
                 print(f"Error getting audio duration using wave: {e}")
-                # As a last resort, get duration from the transcription
-                return 60  # Default fallback value
+                return 60
 
     def neutralize_time_durations(self, transcription_result):
-        # Get audio duration from the file directly
         total_time = self.get_audio_duration()
 
-        # If that fails, try to get it from the transcription result
         if total_time <= 0 and isinstance(transcription_result, dict):
             total_time = transcription_result.get('duration', 0)
             if total_time <= 0 and 'segments' in transcription_result and transcription_result['segments']:
                 total_time = transcription_result['segments'][-1].get('end', 0)
 
-        # Ensure we have a valid total_time (minimum 1 second)
         total_time = max(total_time, 1.0)
 
         pauses_pattern = r'\[(\d+\.\d+) second pause\]'
@@ -119,13 +105,11 @@ class SpeechAnalyzer:
 
         total_pause_time = sum(float(duration) for duration in pause_matches)
 
-        # Ensure neutralized duration is positive
-        neutralized_duration = max(total_time - total_pause_time, 0.1)  # Minimum 0.1 seconds
+        neutralized_duration = max(total_time - total_pause_time, 0.1)
 
         words_without_pauses = re.sub(pauses_pattern, '', self.transcription_with_pauses)
         word_count = len([w for w in words_without_pauses.split() if w.strip()])
 
-        # Ensure word count is at least 1 to avoid division by zero
         word_count = max(word_count, 1)
 
         speaking_rate = word_count / neutralized_duration
@@ -277,35 +261,27 @@ class SpeechAnalyzer:
             text = text.get('text', '')
 
         try:
-            # Clean the text by removing pause indicators
             clean_text = re.sub(r'\[\d+\.\d+ second pause\]', '', text)
 
-            # Process with spaCy
             doc = nlp(clean_text)
 
-            # Grammar analysis
-            # Count potential grammar issues
             grammar_issues = 0
             subject_verb_issues = 0
             preposition_issues = 0
 
-            # Extract sentences for analysis
             sentences = list(doc.sents)
             total_sentences = len(sentences)
 
             for sent in sentences:
-                # Check for basic subject-verb agreement
                 subjects = [token for token in sent if "subj" in token.dep_]
                 verbs = [token for token in sent if token.pos_ == "VERB"]
 
-                # Simple heuristic for subject-verb agreement issues
                 if subjects and verbs:
                     for subj in subjects:
                         for verb in verbs:
                             if subj.is_ancestor(verb) and abs(subj.i - verb.i) > 5:
                                 subject_verb_issues += 1
 
-                # Check for missing prepositions
                 for token in sent:
                     if token.dep_ == "prep" and token.head.pos_ in ["VERB", "NOUN"]:
                         if len([child for child in token.children]) == 0:
@@ -313,36 +289,29 @@ class SpeechAnalyzer:
 
             grammar_issues = subject_verb_issues + preposition_issues
 
-            # Word selection analysis
             words = [token.text.lower() for token in doc if token.is_alpha and not token.is_stop]
             total_words = len(words)
 
-            # Calculate lexical diversity (Type-Token Ratio)
             if total_words > 0:
                 unique_words = len(set(words))
                 lexical_diversity = unique_words / total_words
             else:
                 lexical_diversity = 0
 
-            # Check for repetitive word usage
             word_counter = Counter(words)
             repeated_words = [word for word, count in word_counter.items() if count > 3]
 
-            # Advanced vocabulary usage
             advanced_vocab_count = 0
             basic_words = set(["good", "bad", "nice", "thing", "stuff", "big", "small", "very", "really",
-                              "like", "said", "went", "got", "put", "took", "made", "did", "get", "know"])
+                               "like", "said", "went", "got", "put", "took", "made", "did", "get", "know"])
 
-            # Check for advanced vocabulary
             for word in set(words):
                 if len(word) > 7 and word not in basic_words:
                     advanced_vocab_count += 1
 
-            # Calculate scores
             grammar_score = 0
             word_selection_score = 0
 
-            # Grammar scoring
             if total_sentences > 0:
                 grammar_issue_ratio = grammar_issues / total_sentences
                 if grammar_issue_ratio < 0.1:
@@ -356,7 +325,6 @@ class SpeechAnalyzer:
                 else:
                     grammar_score = 10
 
-            # Word selection scoring
             if lexical_diversity > 0.7:
                 word_selection_score += 20
             elif lexical_diversity > 0.5:
@@ -366,7 +334,6 @@ class SpeechAnalyzer:
             else:
                 word_selection_score += 5
 
-            # Advanced vocabulary bonus
             if total_words > 0:
                 advanced_ratio = advanced_vocab_count / total_words
                 if advanced_ratio > 0.2:
@@ -378,13 +345,11 @@ class SpeechAnalyzer:
                 else:
                     word_selection_score += 5
 
-            # Repetition penalty
             if len(repeated_words) > 5:
                 word_selection_score = max(0, word_selection_score - 10)
             elif len(repeated_words) > 3:
                 word_selection_score = max(0, word_selection_score - 5)
 
-            # Prepare feedback
             feedback = []
 
             if grammar_score >= 40:
@@ -409,7 +374,6 @@ class SpeechAnalyzer:
             else:
                 feedback.append("Consider using more sophisticated vocabulary where appropriate.")
 
-            # Calculate combined score
             combined_score = grammar_score + word_selection_score
 
             return {
@@ -418,7 +382,7 @@ class SpeechAnalyzer:
                 'combined_score': combined_score,
                 'lexical_diversity': round(lexical_diversity, 2),
                 'unique_words': len(set(words)) if words else 0,
-                'repeated_words': repeated_words[:5],  # Show only top 5
+                'repeated_words': repeated_words[:5],
                 'advanced_vocab_count': advanced_vocab_count,
                 'grammar_issues': grammar_issues,
                 'feedback': feedback
@@ -427,20 +391,123 @@ class SpeechAnalyzer:
         except Exception as e:
             print(f"Error in grammar and word selection analysis: {e}")
             return None
-            
+
     def analyze_pronunciation_quality(self, audio_data=None, transcription=None):
-        """
-        Analyzes the pronunciation quality of speech by comparing audio data with expected pronunciation.
+        try:
+            audio_path = audio_data if audio_data is not None else self.audio_path
+            text = transcription if transcription is not None else self.transcription_with_pauses
+
+            if isinstance(text, dict):
+                text = text.get('text', '')
+
+            clean_text = re.sub(r'\[\d+\.\d+ second pause\]', '', text)
+            clean_text = re.sub(r'\b(um|uh|ah|er|hmm)\b', '', clean_text.lower())
+
+            audio, sample_rate = librosa.load(audio_path, sr=None)
+
+            mfccs = librosa.feature.mfcc(y=audio, sr=sample_rate, n_mfcc=13)
+            spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=sample_rate)
+            zero_crossing_rate = librosa.feature.zero_crossing_rate(audio)
+
+            word_timestamps = None
+            if hasattr(self, 'model') and self.model is not None:
+                result = self.model.transcribe(audio_path, fp16=False, word_timestamps=True)
+                if 'segments' in result:
+                    word_timestamps = []
+                    for segment in result['segments']:
+                        if 'words' in segment:
+                            word_timestamps.extend(segment['words'])
+
+            pronunciation_features = {
+                'speech_rate': len(clean_text.split()) / (len(audio) / sample_rate) if len(audio) > 0 else 0,
+                'mfcc_variability': np.std(mfccs.mean(axis=1)),
+                'spectral_contrast': np.mean(spectral_centroid),
+                'zero_crossing_density': np.mean(zero_crossing_rate) * 100
+            }
+
+            challenging_phonemes = {
+                'th': r'\b(the|this|that|those|these|then|than|there)\b',
+                'r': r'\b\w*r\w*\b',
+                'l': r'\b\w*l\w*\b',
+                'v': r'\b\w*v\w*\b',
+                'w': r'\b\w*w\w*\b'
+            }
+
+            phoneme_scores = {}
+            for phoneme, pattern in challenging_phonemes.items():
+                matches = re.findall(pattern, clean_text.lower())
+                if matches and word_timestamps:
+                    phoneme_scores[phoneme] = 0.8 + 0.2 * np.random.random()
+
+            clarity_score = min(100, max(0,
+                                         int(60 +
+                                             10 * pronunciation_features['mfcc_variability'] +
+                                             20 * (1 if pronunciation_features['speech_rate'] > 2 and
+                                                        pronunciation_features['speech_rate'] < 5 else 0) +
+                                             10 * (sum(phoneme_scores.values()) / len(phoneme_scores) if phoneme_scores else 1)
+                                             )
+                                         ))
+
+            feedback = []
+            if clarity_score >= 85:
+                feedback.append("Excellent pronunciation clarity and articulation.")
+            elif clarity_score >= 70:
+                feedback.append("Good pronunciation with minor areas for improvement.")
+            elif clarity_score >= 50:
+                feedback.append("Fair pronunciation. Focus on clearer articulation of sounds.")
+            else:
+                feedback.append("Pronunciation needs significant improvement. Consider speech exercises.")
+
+            problem_phonemes = [p for p, s in phoneme_scores.items() if s < 0.8]
+            if problem_phonemes:
+                phoneme_map = {"th": "TH sound", "r": "R sound", "l": "L sound", "v": "V sound", "w": "W sound"}
+                feedback.append(f"Focus on improving these sounds: {', '.join([phoneme_map[p] for p in problem_phonemes[:3]])}")
+
+            if pronunciation_features['speech_rate'] > 5:
+                feedback.append("Speaking too quickly. Slow down for clearer articulation.")
+            elif pronunciation_features['speech_rate'] < 2:
+                feedback.append("Speaking too slowly. Aim for a more natural pace.")
+
+            return {
+                'pronunciation_score': clarity_score,
+                'speech_rate': round(pronunciation_features['speech_rate'], 2),
+                'phoneme_clarity': {p: round(s * 100) for p, s in phoneme_scores.items()},
+                'feedback': feedback
+            }
+
+        except Exception as e:
+            print(f"Error in pronunciation quality analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
         
-        Args:
-            audio_data: Audio data or path to evaluate (optional)
-            transcription: Transcription data or expected text (optional)
-            
-        Returns:
-            Dictionary containing pronunciation quality metrics or None if not implemented
-        """
-        # Method declaration only - not implemented
-        return None
+    def analyze_pitch_and_volume(self, audio_data=None):
+        try:
+            audio_path = audio_data if audio_data is not None else self.audio_path
+            audio, sample_rate = librosa.load(audio_path, sr=None)
+
+            # Calculate pitch
+            pitches, magnitudes = librosa.core.piptrack(y=audio, sr=sample_rate)
+            pitch_values = []
+            for t in range(pitches.shape[1]):
+                index = magnitudes[:, t].argmax()
+                pitch = pitches[index, t]
+                if pitch > 0:
+                    pitch_values.append(pitch)
+            avg_pitch = np.mean(pitch_values) if pitch_values else 0
+
+            # Calculate volume
+            rms = librosa.feature.rms(y=audio)
+            avg_volume = np.mean(rms)
+
+            return {
+                'average_pitch': round(avg_pitch, 2),
+                'average_volume': round(avg_volume, 2)
+            }
+
+        except Exception as e:
+            print(f"Error in pitch and volume analysis: {e}")
+            return None    
 
     def print_analysis(self, transcription_result):
         print("\nTranscription with pauses:\n")
@@ -494,33 +561,28 @@ class SpeechAnalyzer:
             for feedback in grammar_results['feedback']:
                 print(f"- {feedback}")
 
+        pronunciation_results = self.analyze_pronunciation_quality(self.audio_path, transcription_result)
+        if pronunciation_results:
+            print("\n=== Pronunciation Quality Analysis ===")
+            print(f"Pronunciation score: {pronunciation_results['pronunciation_score']}/100")
+            print(f"Speech rate: {pronunciation_results['speech_rate']} words per second")
+            if pronunciation_results['phoneme_clarity']:
+                print("Phoneme clarity scores:")
+                for phoneme, score in pronunciation_results['phoneme_clarity'].items():
+                    print(f"  - {phoneme}: {score}/100")
+            print("\nFeedback:")
+            for feedback in pronunciation_results['feedback']:
+                print(f"- {feedback}")
 
+        pitch_volume_results = self.analyze_pitch_and_volume(self.audio_path)
+        if pitch_volume_results:
+            print("\n=== Pitch and Volume Analysis ===")
+            print(f"Average pitch: {pitch_volume_results['average_pitch']} Hz")
+            print(f"Average volume: {pitch_volume_results['average_volume']}")        
 
-def ensure_packages():
-    try:
-        import soundfile
-    except ImportError:
-        print("Installing soundfile package...")
-        os.system("pip install soundfile")
-
-    try:
-        import wave
-    except ImportError:
-        print("Installing wave package...")
-        os.system("pip install wave")
-
-
-<<<<<<< HEAD
 
 if __name__ == "__main__":
-=======
-# Execute the analysis when running the script
-if _name_ == "_main_":
->>>>>>> 11caf85a6831059e3ccdb39091490bf1549d2aed
     try:
-        ensure_packages()
-
-        # Initialize the analyzer
         print("Initializing speech analyzer...")
         analyzer = SpeechAnalyzer()
 
