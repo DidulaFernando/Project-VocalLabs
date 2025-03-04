@@ -191,7 +191,14 @@ class _DashboardTab extends StatelessWidget {
                   const Text('Recent Speeches', style: AppTextStyles.heading2),
                   TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/speech_history');
+                      // Navigate to History tab
+                      final homeState =
+                          context.findAncestorStateOfType<_HomeScreenState>();
+                      if (homeState != null) {
+                        homeState.setState(() {
+                          homeState._selectedIndex = 1;
+                        });
+                      }
                     },
                     child: const Text(
                       'View All',
@@ -206,6 +213,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Today, 2:30 PM',
                 duration: '5:45',
                 score: 82,
+                context: context,
               ),
               const SizedBox(height: 12),
               _buildRecentSpeechItem(
@@ -213,6 +221,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Yesterday, 10:15 AM',
                 duration: '12:20',
                 score: 78,
+                context: context,
               ),
               const SizedBox(height: 12),
               _buildRecentSpeechItem(
@@ -220,6 +229,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Feb 24, 4:45 PM',
                 duration: '3:10',
                 score: 75,
+                context: context,
               ),
             ],
           ),
@@ -263,10 +273,12 @@ class _DashboardTab extends StatelessWidget {
     required String date,
     required String duration,
     required int score,
+    required BuildContext context,
   }) {
     return CardLayout(
       onTap: () {
-        // Navigate to speech details
+        // Navigate to speech playback when tapping on history item
+        Navigator.pushNamed(context, '/playback_history');
       },
       child: Row(
         children: [
@@ -304,7 +316,10 @@ class _DashboardTab extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.lightText),
+          const Icon(
+            Icons.play_arrow,
+            color: AppColors.primaryBlue,
+          ), // Changed from chevron_right
         ],
       ),
     );
