@@ -14,6 +14,7 @@ class AccountSettingsScreen extends StatefulWidget {
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
+  String _selectedPlan = 'Free';
   String? _profileImagePath;
 
   // Form controllers
@@ -136,22 +137,212 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               ),
               const SizedBox(height: 32),
 
+              // Subscription Plans
+              const Text('Subscription Plan', style: AppTextStyles.heading2),
+              const SizedBox(height: 16),
+
+              // Free Plan
+              _buildPlanCard(
+                title: 'Free Plan',
+                price: '\$0',
+                period: 'forever',
+                features: const [
+                  '5 speech analyses per month',
+                  'Basic metrics and feedback',
+                  'Limited feature access',
+                ],
+                isSelected: _selectedPlan == 'Free',
+                onSelect: () => setState(() => _selectedPlan = 'Free'),
+              ),
+              const SizedBox(height: 16),
+
+              // Pro Monthly Plan
+              _buildPlanCard(
+                title: 'Pro Monthly',
+                price: '\$9.99',
+                period: 'per month',
+                features: const [
+                  'Unlimited speech analyses',
+                  'Advanced metrics & insights',
+                  'Priority support',
+                  'No ads',
+                ],
+                isPro: true,
+                isSelected: _selectedPlan == 'Monthly',
+                onSelect: () => setState(() => _selectedPlan = 'Monthly'),
+              ),
+              const SizedBox(height: 16),
+
+              // Pro Annual Plan
+              _buildPlanCard(
+                title: 'Pro Annual',
+                price: '\$79.99',
+                period: 'per year',
+                features: const [
+                  'Save 33% vs monthly',
+                  'Unlimited speech analyses',
+                  'Advanced metrics & insights',
+                  'Priority support',
+                  'No ads',
+                  'Export reports',
+                ],
+                isPro: true,
+                isSelected: _selectedPlan == 'Annual',
+                onSelect: () => setState(() => _selectedPlan = 'Annual'),
+                badgeText: 'BEST VALUE',
+              ),
+              const SizedBox(height: 32),
+
               // Save Changes Button
               CustomButton(
-                text: 'Save Changes',
+                text:
+                    _selectedPlan == 'Free'
+                        ? 'Save Changes'
+                        : 'Subscribe & Save',
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
-                    // Save profile changes
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile updated successfully!'),
-                      ),
-                    );
-                    Navigator.pop(context);
+                    if (_selectedPlan != 'Free') {
+                      Navigator.pushNamed(context, '/payment');
+                    } else {
+                      // Save profile changes
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully!'),
+                        ),
+                      );
+                      Navigator.pop(context);
+                    }
                   }
                 },
               ),
               const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required String title,
+    required String price,
+    required String period,
+    required List<String> features,
+    bool isPro = false,
+    bool isSelected = false,
+    required VoidCallback onSelect,
+    String? badgeText,
+  }) {
+    return GestureDetector(
+      onTap: onSelect,
+      child: CardLayout(
+        padding: EdgeInsets.zero,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isSelected ? AppColors.primaryBlue : Colors.transparent,
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: AppTextStyles.heading2.copyWith(fontSize: 18),
+                        ),
+                        if (isPro)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'PRO',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          price,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(period, style: AppTextStyles.body2),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ...features.map(
+                      (feature) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color:
+                                  isPro
+                                      ? AppColors.primaryBlue
+                                      : AppColors.success,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(feature, style: AppTextStyles.body2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (badgeText != null)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badgeText,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

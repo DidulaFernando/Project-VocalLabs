@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'dart:math' as math;
 
 class FeedbackScreen extends StatelessWidget {
