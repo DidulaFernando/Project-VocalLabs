@@ -112,16 +112,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(),
                     _buildNavigationSetting(
-                      icon: Icons.speed,
-                      title: 'Target Speech Rate',
-                      subtitle: 'Set your ideal words per minute',
-                      value: '120-150 wpm',
-                      onTap: () {
-                        // Navigate to speech rate settings
-                      },
-                    ),
-                    const Divider(),
-                    _buildNavigationSetting(
                       icon: Icons.text_fields,
                       title: 'Filler Word Detection',
                       subtitle: 'Customize detected filler words',
