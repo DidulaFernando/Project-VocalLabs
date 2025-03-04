@@ -15,7 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _soundEnabled = true;
   bool _automaticAnalysis = true;
   bool _darkModeEnabled = false;
-  String _selectedLanguage = 'English';
+  final String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
