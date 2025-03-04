@@ -54,6 +54,11 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen>
   }
 
   void _pauseRecording() {
+    if (_isPaused) {
+      _resumeRecording();
+      return;
+    }
+
     setState(() {
       _isPaused = true;
     });
@@ -76,9 +81,16 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen>
     });
 
     _timer?.cancel();
+  }
 
+  void _uploadRecording() {
+    _stopRecording();
     // Navigate to review screen
     Navigator.pushNamed(context, '/playback');
+  }
+
+  void _discardRecording() {
+    _showDiscardDialog();
   }
 
   void _startTimer() {
@@ -194,24 +206,38 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildActionButton(
+                      icon: _isPaused ? Icons.play_arrow : Icons.pause,
+                      color: _isPaused ? AppColors.success : AppColors.warning,
+                      label: _isPaused ? 'Resume' : 'Pause',
+                      onPressed: _pauseRecording,
+                    ),
+                    _buildActionButton(
                       icon: Icons.stop,
                       color: Colors.red,
                       label: 'Stop',
                       onPressed: _stopRecording,
                     ),
-                    _buildActionButton(
-                      icon: _isPaused ? Icons.play_arrow : Icons.pause,
-                      color: _isPaused ? AppColors.success : AppColors.warning,
-                      label: _isPaused ? 'Resume' : 'Pause',
-                      onPressed: _isPaused ? _resumeRecording : _pauseRecording,
-                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                CustomButton(
-                  text: 'Stop and Analyze',
-                  backgroundColor: Colors.red,
-                  onPressed: _stopRecording,
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Upload',
+                        backgroundColor: AppColors.primaryBlue,
+                        onPressed: _uploadRecording,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Delete',
+                        backgroundColor: Colors.red,
+                        onPressed: _discardRecording,
+                      ),
+                    ),
+                  ],
                 ),
               ] else ...[
                 CustomButton(
