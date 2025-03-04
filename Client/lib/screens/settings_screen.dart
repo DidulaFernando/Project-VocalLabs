@@ -85,35 +85,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Speech Settings', style: AppTextStyles.heading2),
-              const SizedBox(height: 16),
-              CardLayout(
-                child: Column(
-                  children: [
-                    _buildDropdownSetting(
-                      icon: Icons.language,
-                      title: 'Language',
-                      subtitle: 'Set your primary speech language',
-                      value: _selectedLanguage,
-                      options: const [
-                        'English',
-                        'Spanish',
-                        'French',
-                        'German',
-                        'Mandarin',
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedLanguage = value;
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
               const Text('Account', style: AppTextStyles.heading2),
               const SizedBox(height: 16),
               CardLayout(
