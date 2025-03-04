@@ -66,17 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton:
-          _selectedIndex == 0
-              ? FloatingActionButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/analysis');
-                },
-                backgroundColor: AppColors.primaryBlue,
-                child: const Icon(Icons.mic),
-              )
-              : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
