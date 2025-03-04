@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
+import 'dart:math' as math;
 
 class FeedbackScreen extends StatelessWidget {
   const FeedbackScreen({super.key});
@@ -62,6 +63,13 @@ class FeedbackScreen extends StatelessWidget {
                 CardLayout(
                   child: Column(
                     children: [
+                      // Add radar chart here
+                      const SizedBox(height: 16),
+                      SizedBox(height: 220, child: buildSimpleRadarChart()),
+                      const SizedBox(height: 24),
+                      const Divider(height: 1),
+                      const SizedBox(height: 16),
+
                       _buildMetricItem(
                         icon: Icons.speed,
                         title: 'Pace',
@@ -227,5 +235,149 @@ class FeedbackScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget buildSimpleRadarChart() {
+    const categories = [
+      'Pace',
+      'Modulation',
+      'Vocabulary',
+      'Clarity',
+      'Effectiveness',
+    ];
+    final values = [0.85, 0.75, 0.82, 0.65, 0.78];
+
+    return CustomPaint(
+      size: const Size(double.infinity, 200),
+      painter: SimpleRadarChartPainter(
+        values: values,
+        categories: categories,
+        fillColor: AppColors.primaryBlue.withOpacity(0.2),
+        borderColor: AppColors.primaryBlue,
+        textColor: AppColors.lightText,
+      ),
+    );
+  }
+}
+
+// Custom radar chart painter class
+class SimpleRadarChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> categories;
+  final Color fillColor;
+  final Color borderColor;
+  final Color textColor;
+
+  SimpleRadarChartPainter({
+    required this.values,
+    required this.categories,
+    required this.fillColor,
+    required this.borderColor,
+    required this.textColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius =
+        size.width < size.height ? size.width / 2 - 40 : size.height / 2 - 40;
+    final count = values.length;
+
+    // Draw background grid
+    final gridPaint =
+        Paint()
+          ..color = Colors.grey.shade300
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+
+    // Draw grid circles
+    for (int i = 1; i <= 4; i++) {
+      final gridRadius = radius * i / 4;
+      canvas.drawCircle(center, gridRadius, gridPaint);
+    }
+
+    // Draw spokes
+    for (int i = 0; i < count; i++) {
+      final angle = 2 * 3.14159 * i / count - 3.14159 / 2;
+      final x = center.dx + radius * cos(angle);
+      final y = center.dy + radius * sin(angle);
+      canvas.drawLine(center, Offset(x, y), gridPaint);
+
+      // Draw category labels
+      final labelX = center.dx + (radius + 20) * cos(angle);
+      final labelY = center.dy + (radius + 20) * sin(angle);
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: categories[i],
+          style: TextStyle(color: textColor, fontSize: 12),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(labelX - textPainter.width / 2, labelY - textPainter.height / 2),
+      );
+    }
+
+    // Draw polygon
+    final fillPaint =
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill;
+
+    final borderPaint =
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
+
+    final path = Path();
+    for (int i = 0; i < count; i++) {
+      final value = values[i];
+      final angle = 2 * 3.14159 * i / count - 3.14159 / 2;
+      final x = center.dx + radius * value * cos(angle);
+      final y = center.dy + radius * value * sin(angle);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+
+    canvas.drawPath(path, fillPaint);
+    canvas.drawPath(path, borderPaint);
+
+    // Draw data points
+    final pointPaint =
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < count; i++) {
+      final value = values[i];
+      final angle = 2 * 3.14159 * i / count - 3.14159 / 2;
+      final x = center.dx + radius * value * cos(angle);
+      final y = center.dy + radius * value * sin(angle);
+
+      canvas.drawCircle(Offset(x, y), 3, pointPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
+
+  // Helper for angle calculations
+  double cos(double angle) {
+    return math.cos(angle);
+  }
+
+  double sin(double angle) {
+    return math.sin(angle);
   }
 }
