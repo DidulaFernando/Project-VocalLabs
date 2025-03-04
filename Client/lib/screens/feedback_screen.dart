@@ -97,9 +97,17 @@ class FeedbackScreen extends StatelessWidget {
                 const Text('Transcription', style: AppTextStyles.heading2),
                 const SizedBox(height: 16),
                 CardLayout(
-                  child: Text(
-                    'Thank you for the opportunity to speak today. I wanted to discuss the importance of effective communication in our daily lives. As we all know, um, communication is key to building strong relationships both personally and professionally...',
-                    style: AppTextStyles.body1.copyWith(height: 1.5),
+                  child: SizedBox(
+                    height: 100,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'Thank you for the opportunity to speak today. I wanted to discuss the importance of effective communication in our daily lives. As we all know, um, communication is key to building strong relationships both personally and professionally...',
+                          style: AppTextStyles.body1.copyWith(height: 1.5),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
