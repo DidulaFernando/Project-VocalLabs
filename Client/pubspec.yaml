@@ -19,29 +19,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # Core dependencies
+  firebase_core: ^2.24.2
   cupertino_icons: ^1.0.8
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   path_provider: ^2.1.2
   intl: ^0.19.0
-  
-  # UI related
+  firebase_auth: ^4.16.0
   flutter_svg: ^2.0.9
   fl_chart: ^0.66.0
   lottie: ^2.7.0
   shimmer: ^3.0.0
   cached_network_image: ^3.3.1
-  
-  # Audio related
   record: ^5.0.4
   audioplayers: ^5.2.1
-  
-  # Charts and visualization
   syncfusion_flutter_charts: ^24.1.46
-  
-  # Others
   permission_handler: ^11.1.0
   url_launcher: ^6.2.2
   package_info_plus: ^5.0.1
@@ -53,22 +45,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/Our_Logo.jpg
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/assets-and-images/#resolution-aware
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/assets-and-images/#from-packages
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font.

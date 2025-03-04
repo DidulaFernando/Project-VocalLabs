@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "326030694142",
+    "project_id": "vocalabs-fac54",
+    "storage_bucket": "vocalabs-fac54.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:326030694142:android:af5d2d1c0a0f04e365f7af",
+        "android_client_info": {
+          "package_name": "com.example.vocallabs_flutter_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "326030694142-6pnld20gj47fg3s4nn5cs7kbuc89a8vl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2I3cSTdPgW0bnVEjR-0BN-FNR1QJRfzE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "326030694142-6pnld20gj47fg3s4nn5cs7kbuc89a8vl.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "326030694142-q61kqm8ns63jba4p7ipbki3g6duc2fno.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.vocallabsFlutterApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

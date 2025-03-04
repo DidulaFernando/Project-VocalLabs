@@ -1,5 +1,7 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:ui';
 import 'package:vocallabs_flutter_app/screens/splash_screen.dart';
 import 'package:vocallabs_flutter_app/screens/login_screen.dart';
 import 'package:vocallabs_flutter_app/screens/registration_screen.dart';
@@ -21,8 +23,39 @@ import 'package:vocallabs_flutter_app/screens/audio_recording_screen.dart';
 import 'package:vocallabs_flutter_app/screens/speech_playback_screen.dart';
 import 'package:vocallabs_flutter_app/screens/search_screen.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
+import 'firebase_options.dart' show DefaultFirebaseOptions;
 
-void main() {
+Future<void> main() async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set up Flutter error handling
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) {
+      print('Flutter Error: ${details.toString()}');
+    }
+  };
+
+  // Set up Platform error handling
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (kDebugMode) {
+      print('Platform Error: $error\n$stack');
+    }
+    return true;
+  };
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e, stackTrace) {
+    if (kDebugMode) {
+      print('Firebase initialization error: $e');
+      print('Stack trace: $stackTrace');
+    }
+  }
+
   runApp(const MyApp());
 }
 
@@ -34,6 +67,36 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'VocalLabs',
       debugShowCheckedModeBanner: false,
+      builder: (context, widget) {
+        // Custom error widget
+        ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  kDebugMode 
+                    ? 'Error: ${errorDetails.exception}'
+                    : 'An error occurred.',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
+          );
+        };
+        
+        // Handle null widget case
+        if (widget == null) {
+          return const Scaffold(
+            body: Center(
+              child: Text('Loading...'),
+            ),
+          );
+        }
+        
+        return widget;
+      },
+      home: const SplashScreen(),
       theme: ThemeData(
         primaryColor: AppColors.primaryBlue,
         scaffoldBackgroundColor: Colors.white,
