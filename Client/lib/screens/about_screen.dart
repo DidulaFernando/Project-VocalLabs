@@ -171,6 +171,7 @@ class AboutScreen extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildFeatureItem({
     required IconData icon,
     required String title,

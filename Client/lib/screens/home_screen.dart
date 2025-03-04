@@ -66,6 +66,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      floatingActionButton:
+          _selectedIndex == 0
+              ? Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FloatingActionButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/analysis');
+                    },
+                    backgroundColor: AppColors.primaryBlue,
+                    child: const Icon(Icons.mic),
+                  ),
+                  const SizedBox(height: 16),
+                  FloatingActionButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/upload_confirmation');
+                    },
+                    backgroundColor: AppColors.primaryBlue,
+                    child: const Icon(Icons.upload),
+                  ),
+                ],
+              )
+              : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -141,6 +165,16 @@ class _DashboardTab extends StatelessWidget {
                       icon: Icons.mic,
                       onPressed: () {
                         Navigator.pushNamed(context, '/analysis');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    CustomButton(
+                      text: 'Upload Speech',
+                      backgroundColor: Colors.white,
+                      textColor: AppColors.primaryBlue,
+                      icon: Icons.upload,
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/upload_confirmation');
                       },
                     ),
                   ],
@@ -326,6 +360,7 @@ class _DashboardTab extends StatelessWidget {
   }
 }
 
+// Add placeholder widgets for other tabs
 class _HistoryTab extends StatelessWidget {
   const _HistoryTab();
 
