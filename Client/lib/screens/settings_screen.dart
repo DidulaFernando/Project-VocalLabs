@@ -110,16 +110,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       },
                     ),
-                    const Divider(),
-                    _buildNavigationSetting(
-                      icon: Icons.text_fields,
-                      title: 'Filler Word Detection',
-                      subtitle: 'Customize detected filler words',
-                      value: '8 words',
-                      onTap: () {
-                        // Navigate to filler word settings
-                      },
-                    ),
                   ],
                 ),
               ),
