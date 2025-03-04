@@ -183,21 +183,33 @@ class _DashboardTab extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildProgressItem(
-                      label: 'Speaking Clarity',
+                      label: 'Speech Development',
                       progress: 0.75,
                       color: AppColors.primaryBlue,
                     ),
                     const SizedBox(height: 16),
                     _buildProgressItem(
-                      label: 'Filler Word Reduction',
+                      label: 'Proficiency',
                       progress: 0.60,
                       color: AppColors.warning,
                     ),
                     const SizedBox(height: 16),
                     _buildProgressItem(
-                      label: 'Pace Management',
+                      label: 'Voice Analysis',
                       progress: 0.85,
                       color: AppColors.success,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProgressItem(
+                      label: 'Speech Effectiveness',
+                      progress: 0.56,
+                      color: const Color.fromARGB(255, 149, 90, 148),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProgressItem(
+                      label: 'Vocabulary Evaluation',
+                      progress: 0.71,
+                      color: const Color.fromARGB(255, 81, 161, 165),
                     ),
                   ],
                 ),
