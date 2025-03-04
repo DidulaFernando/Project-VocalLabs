@@ -96,24 +96,6 @@ class _TutorialHelpScreenState extends State<TutorialHelpScreen> {
                   // Play tutorial video
                 },
               ),
-              const SizedBox(height: 12),
-              _buildVideoTutorialItem(
-                title: 'Understanding Your Analysis',
-                duration: '5:20',
-                thumbnail: 'assets/images/tutorial_2.jpg',
-                onTap: () {
-                  // Play tutorial video
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildVideoTutorialItem(
-                title: 'Advanced Speech Techniques',
-                duration: '7:15',
-                thumbnail: 'assets/images/tutorial_3.jpg',
-                onTap: () {
-                  // Play tutorial video
-                },
-              ),
               const SizedBox(height: 24),
               const Text(
                 'Frequently Asked Questions',
@@ -168,7 +150,7 @@ class _TutorialHelpScreenState extends State<TutorialHelpScreen> {
                   children: [
                     _buildHelpOption(
                       icon: Icons.email_outlined,
-                      title: 'Email Support',
+                      title: 'Contact Us',
                       description: 'Get help via email within 24 hours',
                       onTap: () {
                         Navigator.pushNamed(context, '/contact');
