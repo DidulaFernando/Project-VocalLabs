@@ -68,25 +68,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton:
           _selectedIndex == 0
-              ? Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FloatingActionButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/analysis');
-                    },
-                    backgroundColor: AppColors.primaryBlue,
-                    child: const Icon(Icons.mic),
-                  ),
-                  const SizedBox(height: 16),
-                  FloatingActionButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/upload_confirmation');
-                    },
-                    backgroundColor: AppColors.primaryBlue,
-                    child: const Icon(Icons.upload),
-                  ),
-                ],
+              ? FloatingActionButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/analysis');
+                },
+                backgroundColor: AppColors.primaryBlue,
+                child: const Icon(Icons.mic),
               )
               : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -357,15 +344,5 @@ class _DashboardTab extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-// Add placeholder widgets for other tabs
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('History Tab'));
   }
 }
