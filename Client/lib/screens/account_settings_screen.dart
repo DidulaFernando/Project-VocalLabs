@@ -36,6 +36,21 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     }
   }
 
+  void _handlePlanSelection(String plan) {
+    setState(() {
+      _selectedPlan = plan;
+    });
+
+    // If a paid plan is selected, navigate to payment gateway
+    if (plan != 'Free') {
+      Navigator.pushNamed(
+        context,
+        '/payment',
+        arguments: {'plan': plan, 'price': plan == 'Monthly' ? 9.99 : 79.99},
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,7 +167,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   'Limited feature access',
                 ],
                 isSelected: _selectedPlan == 'Free',
-                onSelect: () => setState(() => _selectedPlan = 'Free'),
+                onSelect: () => _handlePlanSelection('Free'),
               ),
               const SizedBox(height: 16),
 
@@ -169,7 +184,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ],
                 isPro: true,
                 isSelected: _selectedPlan == 'Monthly',
-                onSelect: () => setState(() => _selectedPlan = 'Monthly'),
+                onSelect: () => _handlePlanSelection('Monthly'),
               ),
               const SizedBox(height: 16),
 
@@ -188,7 +203,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ],
                 isPro: true,
                 isSelected: _selectedPlan == 'Annual',
-                onSelect: () => setState(() => _selectedPlan = 'Annual'),
+                onSelect: () => _handlePlanSelection('Annual'),
                 badgeText: 'BEST VALUE',
               ),
               const SizedBox(height: 32),
