@@ -17,8 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const _DashboardTab(),
-    const SpeechHistoryScreen(),
-    const ProfileScreen(),
+    const SpeechHistoryScreen(), // Use SpeechHistoryScreen instead of _HistoryTab
+    const ProfileScreen(), // Use ProfileScreen instead of _ProfileTab
   ];
 
   @override
@@ -112,50 +112,36 @@ class _DashboardTab extends StatelessWidget {
               const SizedBox(height: 30),
               CardLayout(
                 backgroundColor: AppColors.primaryBlue,
-                child: Row(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start, // Changed to start
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ready to Practice?',
-                            style: AppTextStyles.heading2.copyWith(
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Record a speech and get instant feedback',
-                            style: AppTextStyles.body2.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          CustomButton(
-                            text: 'Start Recording',
-                            backgroundColor: Colors.white,
-                            textColor: AppColors.primaryBlue,
-                            icon: Icons.mic,
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/analysis');
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.mic,
-                        size: 40,
+                    Text(
+                      'Ready to Practice?',
+                      style: AppTextStyles.heading2.copyWith(
                         color: Colors.white,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Record a speech and get instant feedback',
+                      style: AppTextStyles.body2.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    CustomButton(
+                      text: 'Start Recording',
+                      backgroundColor: Colors.white,
+                      textColor: AppColors.primaryBlue,
+                      icon: Icons.mic,
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/analysis');
+                      },
                     ),
                   ],
                 ),
@@ -325,7 +311,6 @@ class _DashboardTab extends StatelessWidget {
   }
 }
 
-// Add placeholder widgets for other tabs
 class _HistoryTab extends StatelessWidget {
   const _HistoryTab();
 
