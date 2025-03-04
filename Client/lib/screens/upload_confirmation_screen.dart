@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 
+//to confirm the upload of the speech
+
 class UploadConfirmationScreen extends StatelessWidget {
   const UploadConfirmationScreen({super.key});
 
