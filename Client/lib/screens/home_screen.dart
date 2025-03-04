@@ -17,8 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const _DashboardTab(),
-    const SpeechHistoryScreen(), // Use SpeechHistoryScreen instead of _HistoryTab
-    const ProfileScreen(), // Use ProfileScreen instead of _ProfileTab
+    const SpeechHistoryScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -66,22 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton:
-          _selectedIndex == 0
-              ? Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 40.0,
-                ), // Adjust the value as needed
-                child: FloatingActionButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/analysis');
-                  },
-                  backgroundColor: AppColors.primaryBlue,
-                  child: const Icon(Icons.mic),
-                ),
-              )
-              : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }
