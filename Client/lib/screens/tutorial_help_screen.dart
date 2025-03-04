@@ -102,6 +102,7 @@ class _TutorialHelpScreenState extends State<TutorialHelpScreen> {
                   // Play tutorial video
                 },
               ),
+
               const SizedBox(height: 24),
               const Text(
                 'Frequently Asked Questions',
@@ -161,15 +162,6 @@ class _TutorialHelpScreenState extends State<TutorialHelpScreen> {
                       description: 'Get help via email within 24 hours',
                       onTap: () {
                         Navigator.pushNamed(context, '/contact');
-                      },
-                    ),
-                    const Divider(),
-                    _buildHelpOption(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'Live Chat',
-                      description: 'Chat with our support team',
-                      onTap: () {
-                        // Open live chat
                       },
                     ),
                     const Divider(),
