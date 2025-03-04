@@ -1,31 +1,32 @@
-import numpy as np
-
 class SpeechEvaluator:
-    """Handles speech evaluation, scoring, and feedback generation"""
+    """Evaluates speech analysis results and provides an overall score and suggestions."""
 
     def __init__(self):
+        # Component names for reporting
         self.component_names = {
             'effectiveness': 'Speech Effectiveness',
             'structure': 'Speech Structure',
             'grammar': 'Grammar & Word Choice',
             'pronunciation': 'Pronunciation',
-            'pitch': 'Pitch & Volume',
-            'emphasis': 'Speech Emphasis'
+            'pitch': 'Pitch Control',
+            'emphasis': 'Vocal Emphasis',
+            'topic_relevance': 'Topic Relevance'
         }
 
     def calculate_final_score(self, effectiveness_results, structure_results,
                               grammar_results, pronunciation_results, pitch_volume_results,
-                              emphasis_results=None):
+                              emphasis_results=None, topic_relevance_results=None):
         """Calculate final weighted score based on all analysis components"""
         try:
             # Define component weights (sum = 1.0)
             weights = {
-                'effectiveness': 0.18,
-                'structure': 0.15,
-                'grammar': 0.18,
-                'pronunciation': 0.20,
-                'pitch': 0.15,
-                'emphasis': 0.14
+                'effectiveness': 0.16,
+                'structure': 0.13,
+                'grammar': 0.16,
+                'pronunciation': 0.18,
+                'pitch': 0.13,
+                'emphasis': 0.12,
+                'topic_relevance': 0.12
             }
 
             scores = {}
@@ -61,8 +62,18 @@ class SpeechEvaluator:
             else:
                 scores['emphasis'] = 50
 
+            if topic_relevance_results and 'topic_relevance_score' in topic_relevance_results:
+                scores['topic_relevance'] = topic_relevance_results['topic_relevance_score']
+                self.component_names['topic_relevance'] = 'Topic Relevance'
+            else:
+                # If no topic relevance, redistribute weights
+                weights = {k: v / (1 - weights['topic_relevance'])
+                           for k, v in weights.items() if k != 'topic_relevance'}
+                weights['topic_relevance'] = 0
+
             # Calculate weighted final score
-            final_score = sum(scores[component] * weights[component] for component in weights)
+            final_score = sum(scores.get(component, 0) * weights.get(component, 0)
+                              for component in weights)
 
             # Round to nearest integer
             final_score = round(final_score)
@@ -77,117 +88,110 @@ class SpeechEvaluator:
             print(f"Error calculating final score: {e}")
             return {'final_score': 60, 'component_scores': {}}  # Default score on error
 
-    def generate_improvement_suggestions(self, score_data, effectiveness_results, structure_results,
-                                         grammar_results, pronunciation_results, pitch_volume_results,
-                                         time_results, num_pauses=0, emphasis_results=None):
-        """Generate prioritized suggestions based on scores and analysis"""
-        try:
-            suggestions = []
-            component_scores = score_data.get('component_scores', {})
-            final_score = score_data.get('final_score', 60)
+    def generate_improvement_suggestions(self, final_score_data, effectiveness_results=None, structure_results=None,
+                                         grammar_results=None, pronunciation_results=None, pitch_volume_results=None,
+                                         time_results=None, number_of_pauses=0, emphasis_results=None,
+                                         topic_relevance_results=None):
+        """Generate prioritized improvement suggestions based on scores"""
+        suggestions = []
 
-            # Add overall assessment based on final score
-            if final_score >= 90:
-                suggestions.append("Overall: Outstanding speech performance! You excel in most areas of public speaking.")
-            elif final_score >= 80:
-                suggestions.append("Overall: Excellent speech delivery with a few minor areas for improvement.")
-            elif final_score >= 70:
-                suggestions.append("Overall: Very good speech with several strengths and some specific areas to refine.")
-            elif final_score >= 60:
-                suggestions.append("Overall: Good speech with clear strengths but also important areas that need attention.")
-            elif final_score >= 50:
-                suggestions.append("Overall: Fair speech with balanced strengths and weaknesses that need improvement.")
-            else:
-                suggestions.append("Overall: This speech needs significant improvement in several key areas.")
+        # Get component scores
+        scores = final_score_data.get('component_scores', {})
 
-            # Find weakest areas (lowest scoring components)
-            sorted_components = sorted(component_scores.items(), key=lambda x: x[1])
-            weakest_areas = sorted_components[:2]  # Get 2 weakest areas
+        # Find lowest scoring components (areas to improve)
+        components = [(name, scores.get(comp, 50)) for comp, name in self.component_names.items()]
+        components.sort(key=lambda x: x[1])  # Sort by score (ascending)
 
-            # Add specific suggestions for the weakest areas
-            for area, score in weakest_areas:
-                if area == 'effectiveness' and effectiveness_results:
-                    if score < 60:
-                        suggestions.append("Priority: Improve speech effectiveness by clearly stating your purpose at the beginning and providing a strong conclusion.")
+        # Add suggestions based on the lowest scores
+        for component_name, score in components[:3]:  # Focus on 3 weakest areas
+            if score < 60:
+                if component_name == 'Pronunciation' and pronunciation_results:
+                    suggestions.append(pronunciation_results.get('feedback', ["Work on clearer pronunciation"])[0])
 
-                elif area == 'structure' and structure_results:
-                    if score < 60:
-                        suggestions.append("Priority: Work on speech structure by organizing content with clear introduction, body, and conclusion. Use transitions between main points.")
+                elif component_name == 'Grammar & Word Choice' and grammar_results:
+                    suggestions.append(grammar_results.get('feedback', ["Improve grammar and word selection"])[0])
 
-                elif area == 'grammar' and grammar_results:
-                    if score < 60:
-                        suggestions.append("Priority: Focus on grammar and word choice. Reduce repetitive words and incorporate more varied vocabulary.")
+                elif component_name == 'Speech Structure' and structure_results:
+                    suggestions.append(structure_results.get('feedback', ["Improve speech structure"])[0])
 
-                elif area == 'pronunciation' and pronunciation_results:
-                    if score < 60:
-                        suggestions.append("Priority: Practice pronunciation clarity and articulation, especially with challenging sounds.")
+                elif component_name == 'Speech Effectiveness' and effectiveness_results:
+                    suggestions.append(effectiveness_results.get('feedback', ["Make your message clearer"])[0])
 
-                elif area == 'pitch' and pitch_volume_results:
-                    if score < 60:
-                        gender = pitch_volume_results['pitch_range']['detected_gender']
-                        suggestions.append(f"Priority: Work on maintaining your pitch within the ideal {gender} range. Practice vocal exercises to improve pitch control.")
+                elif component_name == 'Pitch Control' and pitch_volume_results:
+                    if 'pitch_details' in pitch_volume_results and 'feedback' in pitch_volume_results['pitch_details']:
+                        suggestions.append(pitch_volume_results['pitch_details']['feedback'][0])
+                    else:
+                        suggestions.append("Work on your pitch variation for better engagement")
 
-                elif area == 'emphasis' and emphasis_results:
-                    if score < 60:
-                        suggestions.append("Priority: Improve your use of vocal emphasis to highlight key points. Vary your tone to stress important concepts.")
+                elif component_name == 'Vocal Emphasis' and emphasis_results:
+                    suggestions.append(emphasis_results.get('feedback', ["Emphasize key points more clearly"])[0])
 
-            # Add specific feedback for time management if available
-            if time_results:
-                speaking_rate = time_results.get('speaking_rate', 0)
-                if speaking_rate > 4:
-                    suggestions.append("Consider slowing down your speaking rate to improve clarity and audience comprehension.")
-                elif speaking_rate < 2:
-                    suggestions.append("Try increasing your speaking pace slightly to maintain audience engagement.")
+                elif component_name == 'Topic Relevance' and topic_relevance_results:
+                    suggestions.append(topic_relevance_results.get('feedback', ["Stay more focused on your topic"])[0])
 
-                pause_time = time_results.get('pause_time', 0)
-                total_time = time_results.get('original_duration', 0)
-                if total_time > 0 and pause_time / total_time > 0.3:
-                    suggestions.append("Reduce excessive pausing to maintain flow and audience engagement.")
-                elif total_time > 0 and pause_time / total_time < 0.05:
-                    suggestions.append("Incorporate more strategic pauses to emphasize key points and give listeners time to process.")
+        # Add timing-related suggestions if available
+        if time_results:
+            speaking_rate = time_results.get('speaking_rate', 0)
+            if speaking_rate > 4.2:
+                suggestions.append("Slow down your speaking pace for better clarity")
+            elif speaking_rate < 2.5:
+                suggestions.append("Try to speak a bit faster to maintain audience engagement")
 
-            # Add filler word advice if significant
-            if num_pauses is not None:
-                # Count pauses per minute
-                audio_duration_minutes = time_results.get('original_duration', 60) / 60 if time_results else 1
-                pause_rate = num_pauses / audio_duration_minutes
+            if number_of_pauses > 15 and time_results.get('pause_time', 0) > time_results.get('original_duration', 60) * 0.3:
+                suggestions.append("Reduce the number and length of pauses for better flow")
+            elif number_of_pauses < 3 and time_results.get('original_duration', 0) > 60:
+                suggestions.append("Include more strategic pauses to emphasize important points")
 
-                if pause_rate > 5:
-                    suggestions.append("Work on reducing filler words and unnecessary pauses to sound more confident and articulate.")
+        # If we don't have enough suggestions yet, add general ones based on final score
+        if len(suggestions) < 3:
+            final_score = final_score_data.get('final_score', 60)
+            if final_score < 50:
+                suggestions.append("Practice with vocal exercises to improve overall delivery")
+                suggestions.append("Record and analyze your speeches regularly to track improvement")
+            elif final_score < 70:
+                suggestions.append("Join a speaking club or get feedback from peers to refine your skills")
 
-            # Add emphasis-specific suggestions if appropriate
-            if emphasis_results:
-                emphasis_coverage = emphasis_results.get('emphasis_coverage', 0)
-                if emphasis_coverage < 30 and 'emphasis' not in [area for area, _ in weakest_areas]:
-                    suggestions.append("Try to emphasize more of your key points through vocal variation and strategic pauses.")
-
-                emphasis_density = emphasis_results.get('emphasis_density_per_minute', 0)
-                if emphasis_density > 10:
-                    suggestions.append("Be selective with emphasis - too many emphasized points can dilute their impact.")
-
-            # Add specific practice suggestions if score is below threshold
-            if final_score < 70:
-                suggestions.append("Practice Tip: Record yourself regularly and analyze your speeches to track improvement in your weakest areas.")
-
-            if len(suggestions) > 6:  # Limit to most important suggestions
-                suggestions = suggestions[:6]
-
-            return suggestions
-
-        except Exception as e:
-            print(f"Error generating improvement suggestions: {e}")
-            return ["Focus on improving your overall speech delivery and practice regularly."]
+        # Return unique suggestions, limited to 5
+        unique_suggestions = list(dict.fromkeys(suggestions))
+        return unique_suggestions[:5]
 
     def format_evaluation_output(self, final_score_data):
-        """Format the component scores for display"""
-        output = []
-        output.append("\n" + "="*50)
-        output.append("=== FINAL SPEECH EVALUATION ===")
-        output.append(f"Overall Score: {final_score_data['final_score']}/100")
+        """Format the final evaluation results as a readable string"""
+        final_score = final_score_data.get('final_score', 0)
+        component_scores = final_score_data.get('component_scores', {})
 
-        output.append("\nComponent Scores:")
-        for component, score in final_score_data.get('component_scores', {}).items():
-            if component in self.component_names:
-                output.append(f"  - {self.component_names[component]}: {score}/100")
+        # Generate star rating (1-5 stars)
+        stars = "★" * (round(final_score/20) or 1)
+        stars += "☆" * (5 - (round(final_score/20) or 1))
+
+        # Generate performance level description
+        if final_score >= 90:
+            performance = "OUTSTANDING"
+        elif final_score >= 80:
+            performance = "EXCELLENT"
+        elif final_score >= 70:
+            performance = "VERY GOOD"
+        elif final_score >= 60:
+            performance = "GOOD"
+        elif final_score >= 50:
+            performance = "FAIR"
+        elif final_score >= 40:
+            performance = "NEEDS IMPROVEMENT"
+        else:
+            performance = "SIGNIFICANT IMPROVEMENT NEEDED"
+
+        # Create formatted output
+        output = [
+            "\n" + "="*50,
+            f"\n  SPEECH EVALUATION SCORE: {final_score}/100  {stars}",
+            f"\n  PERFORMANCE LEVEL: {performance}",
+            "\n" + "="*50,
+            "\n\nComponent Scores:"
+        ]
+
+        # Add component scores
+        for component, name in self.component_names.items():
+            if component in component_scores:
+                output.append(f"  - {name}: {component_scores[component]}/100")
 
         return "\n".join(output)

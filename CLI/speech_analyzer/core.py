@@ -10,6 +10,7 @@ from .content_analyzer import filler_word_detection, analyze_grammar_and_word_se
 from .pronunciation import analyze_pronunciation_quality
 from .audio_features import analyze_pitch_and_volume
 from .emphasis_analyzer import analyze_emphasis
+from .topic_relevance import analyze_topic_relevance
 from .evaluator import SpeechEvaluator
 
 # Load language model
@@ -17,9 +18,10 @@ nlp = spacy.load('en_core_web_sm')
 
 class SpeechAnalyzer:
 
-    def __init__(self, model_name="medium", audio_path=r"D:\2 nd sem\VocalLabs\Project-VocalLabs\CLI\didula_audio01.wav"):
+    def __init__(self, model_name="medium", audio_path=r"D:\2 nd sem\VocalLabs\Project-VocalLabs\CLI\Technology Tools for Leaders.wav", topic=None):
         self.model = whisper.load_model(model_name)
         self.audio_path = audio_path
+        self.topic = topic
         self.transcription_with_pauses = []
         self.number_of_pauses = 0
         self.device = 0 if torch.cuda.is_available() else -1
@@ -66,6 +68,16 @@ class SpeechAnalyzer:
         text = transcript_text if transcript_text is not None else self.transcription_with_pauses
         return analyze_emphasis(audio_path, result, text)
 
+    def analyze_topic_relevance(self, transcription_text=None, topic=None):
+        """Analyze how relevant the speech is to a given topic"""
+        text = transcription_text if transcription_text is not None else self.transcription_with_pauses
+        speech_topic = topic if topic is not None else self.topic
+
+        if not speech_topic:
+            return None
+
+        return analyze_topic_relevance(text, speech_topic)
+
     def print_analysis(self, transcription_result):
         """Perform full analysis and print results"""
         # Print transcription info
@@ -83,6 +95,11 @@ class SpeechAnalyzer:
         pronunciation_results = self.analyze_pronunciation_quality(self.audio_path, transcription_result)
         pitch_volume_results = self.analyze_pitch_and_volume(self.audio_path)
         emphasis_results = self.analyze_emphasis(self.audio_path, transcription_result, self.transcription_with_pauses)
+
+        # Run topic relevance analysis if a topic is provided
+        topic_relevance_results = None
+        if self.topic:
+            topic_relevance_results = self.analyze_topic_relevance(transcription_result, self.topic)
 
         # Print time analysis results
         self._print_time_analysis(time_results)
@@ -105,16 +122,22 @@ class SpeechAnalyzer:
         # Print emphasis analysis results
         self._print_emphasis_analysis(emphasis_results)
 
+        # Print topic relevance results if available
+        if topic_relevance_results:
+            self._print_topic_relevance(topic_relevance_results)
+
         # Calculate final score and generate improvement suggestions
         final_score_data = self.evaluator.calculate_final_score(
             effectiveness_results, structure_results, grammar_results,
-            pronunciation_results, pitch_volume_results, emphasis_results
+            pronunciation_results, pitch_volume_results, emphasis_results,
+            topic_relevance_results
         )
 
         improvement_suggestions = self.evaluator.generate_improvement_suggestions(
             final_score_data, effectiveness_results, structure_results,
             grammar_results, pronunciation_results, pitch_volume_results,
-            time_results, self.number_of_pauses, emphasis_results
+            time_results, self.number_of_pauses, emphasis_results,
+            topic_relevance_results
         )
 
         # Print final evaluation
@@ -234,4 +257,21 @@ class SpeechAnalyzer:
 
             print("\nFeedback:")
             for feedback in emphasis_results['feedback']:
+                print(f"- {feedback}")
+
+    def _print_topic_relevance(self, topic_relevance_results):
+        """Print topic relevance analysis section"""
+        if topic_relevance_results:
+            print("\n=== Topic Relevance Analysis ===")
+            print(f"Topic: '{self.topic}'")
+            print(f"Topic relevance score: {topic_relevance_results['topic_relevance_score']}/100")
+            print(f"Semantic similarity: {topic_relevance_results['similarity']}")
+
+            if topic_relevance_results['key_speech_topics']:
+                print("\nKey topics in speech:")
+                for topic in topic_relevance_results['key_speech_topics'][:5]:
+                    print(f"  - {topic}")
+
+            print("\nFeedback:")
+            for feedback in topic_relevance_results['feedback']:
                 print(f"- {feedback}")
