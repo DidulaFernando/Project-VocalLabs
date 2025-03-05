@@ -40,15 +40,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     setState(() {
       _selectedPlan = plan;
     });
-
-    // If a paid plan is selected, navigate to payment gateway
-    if (plan != 'Free') {
-      Navigator.pushNamed(
-        context,
-        '/payment',
-        arguments: {'plan': plan, 'price': plan == 'Monthly' ? 9.99 : 79.99},
-      );
-    }
   }
 
   @override
@@ -139,13 +130,21 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                      ),
+
+                    // Save Changes Button
+                    CustomButton(
+                      text: 'Save Changes',
+                      onPressed: () {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          // Save profile changes
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Profile updated successfully!'),
+                            ),
+                          );
+                          Navigator.pop(context);
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -208,25 +207,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Save Changes Button
+              // Pay to Subscribe Button
               CustomButton(
-                text:
-                    _selectedPlan == 'Free'
-                        ? 'Save Changes'
-                        : 'Subscribe & Save',
+                text: 'Pay to Subscribe',
                 onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    if (_selectedPlan != 'Free') {
-                      Navigator.pushNamed(context, '/payment');
-                    } else {
-                      // Save profile changes
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile updated successfully!'),
-                        ),
-                      );
-                      Navigator.pop(context);
-                    }
+                  if (_selectedPlan != 'Free') {
+                    Navigator.pushNamed(
+                      context,
+                      '/payment',
+                      arguments: {
+                        'plan': _selectedPlan,
+                        'price': _selectedPlan == 'Monthly' ? 9.99 : 79.99,
+                      },
+                    );
                   }
                 },
               ),
