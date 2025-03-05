@@ -63,7 +63,7 @@ class StartupScreen extends StatelessWidget {
               // Illustration
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Image.asset('assets/images/Our_Logo.jpg', height: 200),
+                child: Image.asset('assets/images/Our_Logo.png', height: 200),
               ),
 
               // Bottom Section
