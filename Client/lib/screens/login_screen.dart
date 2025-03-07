@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Add this import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  Future<void> login() async {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login Failed: $e")),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -112,9 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 CustomButton(
                   text: 'Login',
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
+                  onPressed: login, // Update this line
                 ),
                 const SizedBox(height: 20),
                 Row(
