@@ -1,13 +1,8 @@
-// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
-<<<<<<< Updated upstream
-import 'package:firebase_auth/firebase_auth.dart'; // Add this import
-=======
 import 'package:http/http.dart' as http;
 import 'dart:convert';
->>>>>>> Stashed changes
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,30 +16,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  Future<void> login() async {
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      Navigator.pushReplacementNamed(context, '/home');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login Failed: $e")),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
+  // Update login function to connect to Node.js backend
   void _login() async {
     final response = await http.post(
-      Uri.parse('http://localhost:3000/login'), // Change the URL as needed
+      Uri.parse('http://localhost:5000/api/login'), // Make sure to update the URL to your backend
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'email': _emailController.text,
@@ -58,6 +33,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed')));
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -150,11 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 CustomButton(
                   text: 'Login',
-<<<<<<< Updated upstream
-                  onPressed: login, // Update this line
-=======
-                  onPressed: _login,
->>>>>>> Stashed changes
+                  onPressed: _login, // Use the updated login function
                 ),
                 const SizedBox(height: 20),
                 Row(
