@@ -2,7 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
+<<<<<<< Updated upstream
 import 'package:firebase_auth/firebase_auth.dart'; // Add this import
+=======
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+>>>>>>> Stashed changes
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,6 +40,24 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _login() async {
+    final response = await http.post(
+      Uri.parse('http://localhost:3000/login'), // Change the URL as needed
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'email': _emailController.text,
+        'password': _passwordController.text,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login successful')));
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed')));
+    }
   }
 
   @override
@@ -127,7 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 CustomButton(
                   text: 'Login',
+<<<<<<< Updated upstream
                   onPressed: login, // Update this line
+=======
+                  onPressed: _login,
+>>>>>>> Stashed changes
                 ),
                 const SizedBox(height: 20),
                 Row(

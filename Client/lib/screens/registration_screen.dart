@@ -1,5 +1,7 @@
 // lib/screens/registration_screen.dart
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -45,6 +47,36 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _register() async {
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    final response = await http.post(
+      Uri.parse('http://localhost:3000/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'password': _passwordController.text,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User registered')),
+      );
+      Navigator.pushReplacementNamed(context, '/startup');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed')),
+      );
+    }
   }
 
   @override
@@ -218,7 +250,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 30),
                 CustomButton(
                   text: 'Register',
+<<<<<<< Updated upstream
                   onPressed: signup,
+=======
+                  onPressed: _register,
+>>>>>>> Stashed changes
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -230,7 +266,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        // Changed to pushReplacementNamed to replace the current screen with login
                         Navigator.pushReplacementNamed(context, '/login');
                       },
                       child: const Text(

@@ -19,7 +19,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+<<<<<<< Updated upstream
   firebase_core: ^2.24.2
+=======
+  http: ^1.2.0
+  
+  
+  # Core dependencies
+>>>>>>> Stashed changes
   cupertino_icons: ^1.0.8
   provider: ^6.1.1
   shared_preferences: ^2.2.2
