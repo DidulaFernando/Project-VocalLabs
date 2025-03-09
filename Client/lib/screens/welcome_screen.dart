@@ -29,7 +29,7 @@ class WelcomeScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Image.asset(
-                    'assets/images/VocalLabs.png',
+                    'assets/images/img_1.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
