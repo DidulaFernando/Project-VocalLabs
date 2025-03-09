@@ -213,7 +213,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        // Changed to pushReplacementNamed to replace the current screen with login
                         Navigator.pushReplacementNamed(context, '/login');
                       },
                       child: const Text(
