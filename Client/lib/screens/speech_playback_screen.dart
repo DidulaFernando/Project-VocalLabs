@@ -1,9 +1,11 @@
-// lib/screens/speech_playback_screen.dart
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'dart:typed_data';
+import 'dart:math'; // Import the dart:math library
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:universal_html/html.dart' as html;
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -18,10 +20,43 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   bool _isPlaying = false;
   double _sliderValue = 0.0;
   String _currentPosition = '00:00';
-  final String _totalDuration = '05:30';
+  String _totalDuration = '00:00';
+  late AudioPlayer _audioPlayer;
+  Uint8List? _fileBytes;
+  String? _fileUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioPlayer();
+    _audioPlayer.onPositionChanged.listen((Duration position) {
+      setState(() {
+        _currentPosition = _formatTime(position.inSeconds);
+        _sliderValue = position.inSeconds / (_parseTimeToSeconds(_totalDuration) == 0 ? 1 : _parseTimeToSeconds(_totalDuration));
+      });
+    });
+    _audioPlayer.onDurationChanged.listen((Duration duration) {
+      setState(() {
+        _totalDuration = _formatTime(duration.inSeconds);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    _fileBytes = ModalRoute.of(context)?.settings.arguments as Uint8List?;
+
+    if (_fileBytes != null) {
+      final blob = html.Blob([_fileBytes!]);
+      _fileUrl = html.Url.createObjectUrlFromBlob(blob);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -108,7 +143,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                 child: Column(
                   children: [
                     Slider(
-                      value: _sliderValue,
+                      value: _sliderValue.isNaN ? 0 : _sliderValue,
                       activeColor: AppColors.primaryBlue,
                       inactiveColor: Colors.grey.shade300,
                       onChanged: (value) {
@@ -120,6 +155,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           );
                           int currentSeconds = (totalSeconds * value).round();
                           _currentPosition = _formatTime(currentSeconds);
+                          _audioPlayer.seek(Duration(seconds: currentSeconds));
                         });
                       },
                     ),
@@ -142,25 +178,33 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           onPressed: () {
                             // Rewind 10 seconds
                             double newValue =
-                                _sliderValue -
-                                (10 / _parseTimeToSeconds(_totalDuration));
+                                _sliderValue - (10 / _parseTimeToSeconds(_totalDuration));
                             setState(() {
                               _sliderValue = newValue < 0 ? 0 : newValue;
                               int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) *
-                                          _sliderValue)
-                                      .round();
+                                  (_parseTimeToSeconds(_totalDuration) * _sliderValue).round();
                               _currentPosition = _formatTime(currentSeconds);
+                              _audioPlayer.seek(Duration(seconds: currentSeconds));
                             });
                           },
                           color: AppColors.primaryBlue,
                         ),
                         const SizedBox(width: 20),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             setState(() {
                               _isPlaying = !_isPlaying;
                             });
+                            if (_isPlaying) {
+                              if (_fileUrl != null) {
+                                await _audioPlayer.setSourceUrl(_fileUrl!);
+                                await _audioPlayer.resume();
+                              } else {
+                                await _audioPlayer.play(BytesSource(_fileBytes!));
+                              }
+                            } else {
+                              await _audioPlayer.pause();
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primaryBlue,
@@ -179,15 +223,13 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           onPressed: () {
                             // Forward 10 seconds
                             double newValue =
-                                _sliderValue +
-                                (10 / _parseTimeToSeconds(_totalDuration));
+                                _sliderValue + (10 / _parseTimeToSeconds(_totalDuration));
                             setState(() {
                               _sliderValue = newValue > 1 ? 1 : newValue;
                               int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) *
-                                          _sliderValue)
-                                      .round();
+                                  (_parseTimeToSeconds(_totalDuration) * _sliderValue).round();
                               _currentPosition = _formatTime(currentSeconds);
+                              _audioPlayer.seek(Duration(seconds: currentSeconds));
                             });
                           },
                           color: AppColors.primaryBlue,
@@ -205,60 +247,60 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
               // Buttons section with conditional rendering
               widget.isFromHistory
                   ? Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'View Analysis',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/feedback');
-                          },
+                      children: [
+                        Expanded(
+                          child: CustomButton(
+                            text: 'View Analysis',
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/feedback');
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Share',
-                          isOutlined: true,
-                          onPressed: () {
-                            // Implement share functionality
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Sharing speech recording...'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Share',
+                            isOutlined: true,
+                            onPressed: () {
+                              // Implement share functionality
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Sharing speech recording...'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  )
+                      ],
+                    )
                   : Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Save and Analyze',
-                          onPressed: () {
-                            // Navigate to analysis results
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/feedback',
-                            );
-                          },
+                      children: [
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Save and Analyze',
+                            onPressed: () {
+                              // Navigate to analysis results
+                              Navigator.pushReplacementNamed(
+                                context,
+                                '/feedback',
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Discard',
-                          isOutlined: true,
-                          backgroundColor: Colors.red,
-                          onPressed: () {
-                            _showDiscardDialog();
-                          },
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Discard',
+                            isOutlined: true,
+                            backgroundColor: Colors.red,
+                            onPressed: () {
+                              _showDiscardDialog();
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
               // Transcript preview with sufficient bottom padding
               if (widget.isFromHistory) ...[
@@ -318,31 +360,30 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   void _showDiscardDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Discard Recording?'),
-            content: const Text(
-              'Are you sure you want to discard this recording and start over?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacementNamed(context, '/analysis');
-                },
-                child: const Text(
-                  'Discard and Re-record',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Discard Recording?'),
+        content: const Text(
+          'Are you sure you want to discard this recording and start over?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/analysis');
+            },
+            child: const Text(
+              'Discard and Re-record',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -360,17 +401,15 @@ class WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint activePaint =
-        Paint()
-          ..color = activeColor
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round;
+    final Paint activePaint = Paint()
+      ..color = activeColor
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
 
-    final Paint inactivePaint =
-        Paint()
-          ..color = inactiveColor
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round;
+    final Paint inactivePaint = Paint()
+      ..color = inactiveColor
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
 
     const double barWidth = 3;
     const double gap = 3;
