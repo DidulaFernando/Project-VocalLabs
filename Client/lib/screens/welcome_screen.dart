@@ -6,7 +6,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF190115), // Dark purple background
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -19,7 +19,7 @@ class WelcomeScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF3F414E),
+                  color: Colors.white,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -29,7 +29,7 @@ class WelcomeScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Image.asset(
-                    'assets/images/img_1.png',
+                    'assets/images/VocalLabs.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
@@ -53,7 +53,7 @@ class WelcomeScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF3F414E),
+                      color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -63,7 +63,7 @@ class WelcomeScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color(0xFFA1A4B2),
+                      color: Color(0xFFE0E0E0),
                       height: 1.5,
                     ),
                   ),
@@ -79,18 +79,20 @@ class WelcomeScreen extends StatelessWidget {
                       onPressed:
                           () => Navigator.pushNamed(context, '/register'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8E97FD),
+                        backgroundColor: const Color(0xFF481744),
                         minimumSize: const Size(double.infinity, 63),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(38),
                         ),
+                        elevation: 8,
                       ),
                       child: const Text(
                         'SIGN UP',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
-                          letterSpacing: 0.7,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ),
@@ -101,7 +103,7 @@ class WelcomeScreen extends StatelessWidget {
                         Text(
                           'ALREADY HAVE AN ACCOUNT? ',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Colors.white.withOpacity(0.7),
                             fontSize: 14,
                             letterSpacing: 0.7,
                           ),
@@ -111,9 +113,14 @@ class WelcomeScreen extends StatelessWidget {
                           child: const Text(
                             'LOG IN',
                             style: TextStyle(
-                              color: Color(0xFF8E97FD),
-                              fontSize: 14,
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
                               letterSpacing: 0.7,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Color(
+                                0xFF481744,
+                              ), // Underline color
                             ),
                           ),
                         ),

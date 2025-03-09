@@ -181,7 +181,7 @@ class _LandingScreenState extends State<LandingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Image Placeholder (replace with actual image )
+          // Image Placeholder
           Container(
             height: 240,
             width: double.infinity,

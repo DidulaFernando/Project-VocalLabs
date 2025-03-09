@@ -17,8 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const _DashboardTab(),
-    const SpeechHistoryScreen(), // Use SpeechHistoryScreen instead of _HistoryTab
-    const ProfileScreen(), // Use ProfileScreen instead of _ProfileTab
+    const SpeechHistoryScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -117,8 +117,7 @@ class _DashboardTab extends StatelessWidget {
                   vertical: 20,
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start, // Changed to start
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Ready to Practice?',
@@ -326,10 +325,7 @@ class _DashboardTab extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.play_arrow,
-            color: AppColors.primaryBlue,
-          ), // Changed from chevron_right
+          const Icon(Icons.play_arrow, color: AppColors.primaryBlue),
         ],
       ),
     );
