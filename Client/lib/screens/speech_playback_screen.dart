@@ -37,8 +37,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          // Use ListView instead of Column for scrollable content
+          child: ListView(
             children: [
               const SizedBox(height: 20),
               CardLayout(
@@ -199,7 +199,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                 ),
               ),
 
-              const Spacer(),
+              // Fixed spacing instead of Spacer()
+              const SizedBox(height: 40),
 
               // Buttons section with conditional rendering
               widget.isFromHistory
@@ -258,9 +259,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                       ),
                     ],
                   ),
-              const SizedBox(height: 20),
 
-              // Transcript preview
+              // Transcript preview with sufficient bottom padding
               if (widget.isFromHistory) ...[
                 const SizedBox(height: 20),
                 const Align(
@@ -294,6 +294,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                     ],
                   ),
                 ),
+                // Extra bottom padding to prevent overflow
+                const SizedBox(height: 20),
               ],
             ],
           ),
