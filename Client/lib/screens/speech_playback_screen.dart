@@ -6,6 +6,7 @@ import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:http/http.dart' as http;
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -46,6 +47,26 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   void dispose() {
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _uploadFile() async {
+    if (_fileBytes == null) return;
+
+    final uri = Uri.parse('http://localhost:8000/upload/');
+    final request = http.MultipartRequest('POST', uri)
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        _fileBytes!,
+        filename: 'uploaded_audio.wav',
+      ));
+
+    final response = await request.send();
+
+    if (response.statusCode == 200) {
+      print('File uploaded successfully');
+    } else {
+      print('File upload failed');
+    }
   }
 
   @override
@@ -279,7 +300,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                         Expanded(
                           child: CustomButton(
                             text: 'Save and Analyze',
-                            onPressed: () {
+                            onPressed: () async {
+                              await _uploadFile();
                               // Navigate to analysis results
                               Navigator.pushReplacementNamed(
                                 context,

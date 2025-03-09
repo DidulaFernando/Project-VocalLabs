@@ -12,8 +12,11 @@ if __name__ == "__main__":
         if use_topic.lower().startswith('y'):
             topic = input("Please enter the speech topic: ")
 
+        # Update the audio path to the correct location
+        audio_path = r"E:\IIT\Project-VocalLabs\CLI\Technology Tools for Leaders.wav"
+
         # Initialize with topic if provided
-        analyzer = SpeechAnalyzer(topic=topic)
+        analyzer = SpeechAnalyzer(audio_path=audio_path, topic=topic)
 
         print("Transcribing audio (this may take a while)...")
         result = analyzer.transcribe_audio()

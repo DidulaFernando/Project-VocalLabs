@@ -18,7 +18,7 @@ nlp = spacy.load('en_core_web_sm')
 
 class SpeechAnalyzer:
 
-    def __init__(self, model_name="medium", audio_path=r"D:\2 nd sem\VocalLabs\Project-VocalLabs\CLI\Technology Tools for Leaders.wav", topic=None):
+    def __init__(self, model_name="medium", audio_path=r"E:\IIT\Project-VocalLabs\CLI\Technology Tools for Leaders.wav", topic=None):
         self.model = whisper.load_model(model_name)
         self.audio_path = audio_path
         self.topic = topic
