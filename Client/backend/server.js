@@ -27,7 +27,20 @@ db.connect(err => {
   }
 });
 
+// User Registration Route
+app.post('/register', (req, res) => {
+  const { name, email, password } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 8);
 
+  const sql = 'INSERT INTO users (name, email, password) VALUES (?, ?, ?)';
+  db.query(sql, [name, email, hashedPassword], (err, result) => {
+    if (err) {
+      console.error('Error registering user:', err); // Log the error
+      return res.status(500).send('Error registering user');
+    }
+    res.send({ message: 'User registered successfully!' });
+  });
+});
 
 // User Login Route
 app.post('/login', (req, res) => {
