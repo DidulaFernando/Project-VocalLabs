@@ -5,7 +5,9 @@ import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'dart:math' as math;
 
 class FeedbackScreen extends StatelessWidget {
-  const FeedbackScreen({super.key});
+  final String transcription; // Add a variable to store the transcription
+
+  const FeedbackScreen({super.key, required this.transcription});
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +210,7 @@ class FeedbackScreen extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          'Thank you for the opportunity to speak today. I wanted to discuss the importance of effective communication in our daily lives. As we all know, um, communication is key to building strong relationships both personally and professionally...',
+                          transcription, // Use the actual transcription here
                           style: AppTextStyles.body1.copyWith(height: 1.5),
                         ),
                       ),

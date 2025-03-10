@@ -7,6 +7,8 @@ import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:http/http.dart' as http;
+import 'dart:convert'; // Import dart:convert for JSON decoding
+import 'feedback_screen.dart'; // Import FeedbackScreen
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -25,6 +27,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   late AudioPlayer _audioPlayer;
   Uint8List? _fileBytes;
   String? _fileUrl;
+  String? _transcription; // Add a variable to store the transcription
 
   @override
   void initState() {
@@ -63,6 +66,11 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     final response = await request.send();
 
     if (response.statusCode == 200) {
+      final responseBody = await response.stream.bytesToString();
+      final jsonResponse = jsonDecode(responseBody);
+      setState(() {
+        _transcription = jsonResponse['transcription'];
+      });
       print('File uploaded successfully');
     } else {
       print('File upload failed');
@@ -273,7 +281,11 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           child: CustomButton(
                             text: 'View Analysis',
                             onPressed: () {
-                              Navigator.pushNamed(context, '/feedback');
+                              Navigator.pushNamed(
+                                context, 
+                                '/feedback',
+                                arguments: {'transcription': _transcription ?? ''},
+                              );
                             },
                           ),
                         ),
@@ -302,11 +314,13 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                             text: 'Save and Analyze',
                             onPressed: () async {
                               await _uploadFile();
-                              // Navigate to analysis results
-                              Navigator.pushReplacementNamed(
-                                context,
-                                '/feedback',
-                              );
+                              if (_transcription != null) {
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/feedback',
+                                  arguments: {'transcription': _transcription!},
+                                );
+                              }
                             },
                           ),
                         ),
@@ -325,7 +339,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                     ),
 
               // Transcript preview with sufficient bottom padding
-              if (widget.isFromHistory) ...[
+              if (_transcription != null) ...[
                 const SizedBox(height: 20),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -340,7 +354,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Thank you for the opportunity to speak today. I wanted to discuss the importance of effective communication in our daily lives...',
+                        _transcription!,
                         style: AppTextStyles.body2.copyWith(height: 1.5),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
