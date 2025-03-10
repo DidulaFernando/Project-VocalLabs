@@ -2,6 +2,8 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from models.transcript import transcribe_audio, process_transcription
+from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
+from models.proficiency_evaluation import calculate_proficiency_score
 import whisper
 app = FastAPI()
 
@@ -29,11 +31,32 @@ async def upload_file(file: UploadFile = File(...)):
 
     # Transcribe the audio file
     result = transcribe_audio(model, file_location)
-    transcription, number_of_pauses = process_transcription(result)
+    transcription, pause_duration = process_transcription(result)
+    filler_analysis = analyze_filler_words(result)
+    pause_analysis = analyze_mid_sentence_pauses(transcription)
+    proficiency_scores = calculate_proficiency_score(filler_analysis, pause_analysis)
+    
     print(f"Transcription: {transcription}")
-    print(f"Number of pauses: {number_of_pauses}")
+    print(f"Total pause duration: {pause_duration} seconds")
+    print("\nPause Analysis (Mid-sentence):")
+    for category, count in pause_analysis.items():
+        print(f"{category}: {count}")
+    print("\nFiller Word Analysis:")
+    for key, value in filler_analysis.items():
+        print(f"{key}: {value}")
+    print("\nProficiency Evaluation:")
+    print(f"Final Score: {proficiency_scores['final_score']}/20")
+    print(f"Filler Word Score: {proficiency_scores['filler_score']}/20")
+    print(f"Pause Score: {proficiency_scores['pause_score']}/20")
 
-    return {"filename": file.filename, "transcription": transcription, "number_of_pauses": number_of_pauses}
+    return {
+        "filename": file.filename,
+        "transcription": transcription,
+        "pause_duration": pause_duration,
+        "pause_analysis": pause_analysis,
+        "filler_word_analysis": filler_analysis,
+        "proficiency_scores": proficiency_scores
+    }
 
 if __name__ == "__main__":
     import uvicorn

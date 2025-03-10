@@ -12,12 +12,14 @@ class FeedbackScreen extends StatefulWidget {
   final String transcription;
   final Uint8List? audioData; // Add this line
   final String? audioUrl; // Add this line
+  final Map<String, dynamic>? apiResponse; // Add this line
 
   const FeedbackScreen({
     super.key, 
     required this.transcription,
     this.audioData, // Add this line
     this.audioUrl, // Add this line
+    this.apiResponse, // Add this line
   });
 
   @override
@@ -30,12 +32,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   String _currentPosition = '00:00';
   String _totalDuration = '05:45';
   late AudioPlayer _audioPlayer;
+  Map<String, dynamic>? _apiResponse;  // Add this line to store API response
 
   @override
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
     _initializeAudio(); // Add this line
+    _apiResponse = widget.apiResponse; // Initialize API response from widget
     _audioPlayer.onPositionChanged.listen((Duration position) {
       setState(() {
         _currentPosition = _formatTime(position.inSeconds);
@@ -108,12 +112,16 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 // Overall Score Card - Now clickable
                 GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdvancedAnalysisScreen(),
-                      ),
-                    );
+                    if (_apiResponse != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AdvancedAnalysisScreen(
+                            proficiencyScores: _apiResponse,
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: CardLayout(
                     backgroundColor: AppColors.primaryBlue.withOpacity(0.1),

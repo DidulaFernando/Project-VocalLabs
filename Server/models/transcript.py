@@ -15,7 +15,7 @@ def transcribe_audio(model, audio_path):
 
 def process_transcription(result):
     transcription_with_pauses = []
-    number_of_pauses = 0
+    total_pause_duration = 0
 
     for i in range(len(result['segments'])):
         segment = result['segments'][i]
@@ -34,7 +34,7 @@ def process_transcription(result):
                     pause_duration = round(time_gap, 1)
                     pause_marker = f"[{pause_duration} second pause]"
                     transcription_with_pauses.append(pause_marker)
-                    number_of_pauses += 1
+                    total_pause_duration += pause_duration
 
         if i < len(result['segments']) - 1:
             current_segment_end = segment['end']
@@ -44,9 +44,9 @@ def process_transcription(result):
                 pause_duration = round(time_gap, 1)
                 pause_marker = f"[{pause_duration} second pause]"
                 transcription_with_pauses.append(pause_marker)
-                number_of_pauses += 1
+                total_pause_duration += pause_duration
 
     transcription_with_pauses = ' '.join(transcription_with_pauses)
     transcription_with_pauses = re.sub(r'\s+', ' ', transcription_with_pauses).strip()
 
-    return transcription_with_pauses, number_of_pauses
+    return transcription_with_pauses, total_pause_duration

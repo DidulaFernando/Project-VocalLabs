@@ -79,7 +79,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     super.dispose();
   }
 
-  Future<void> _uploadFile() async {
+  Future<dynamic> _uploadFile() async {
     if (_fileBytes == null) return;
 
     final uri = Uri.parse('http://localhost:8000/upload/');
@@ -98,9 +98,10 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       setState(() {
         _transcription = jsonResponse['transcription'];
       });
-      print('File uploaded successfully');
+      return jsonResponse; // Return the full response
     } else {
       print('File upload failed');
+      return null;
     }
   }
 
@@ -350,9 +351,9 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                               );
 
                               // Perform upload and analysis
-                              await _uploadFile();
+                              final apiResponse = await _uploadFile();
                               
-                              if (_transcription != null && mounted) {
+                              if (_transcription != null && mounted && apiResponse != null) {
                                 // Create a new URL for the feedback screen
                                 String? audioUrl;
                                 if (_fileBytes != null) {
@@ -368,6 +369,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                                       transcription: _transcription!,
                                       audioData: _fileBytes,
                                       audioUrl: audioUrl,
+                                      apiResponse: apiResponse, // Add this parameter
                                     ),
                                   ),
                                 );

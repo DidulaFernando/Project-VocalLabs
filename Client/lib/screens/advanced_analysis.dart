@@ -4,7 +4,12 @@ import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'dart:math' as math;
 
 class AdvancedAnalysisScreen extends StatefulWidget {
-  const AdvancedAnalysisScreen({super.key});
+  final Map<String, dynamic>? proficiencyScores;
+  
+  const AdvancedAnalysisScreen({
+    super.key,
+    this.proficiencyScores,
+  });
 
   @override
   State<AdvancedAnalysisScreen> createState() => _AdvancedAnalysisScreenState();
@@ -12,6 +17,19 @@ class AdvancedAnalysisScreen extends StatefulWidget {
 
 class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   final Map<String, bool> _expandedItems = {};
+  late double finalScore;
+  late double pauseScore;
+  late double fillerScore;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize scores from widget parameters
+    final scores = widget.proficiencyScores?['proficiency_scores'] ?? {};
+    finalScore = (scores['final_score'] ?? 0.0).toDouble();
+    pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
+    fillerScore = (scores['filler_score'] ?? 0.0).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,22 +157,22 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.verified, // Checkmark/proficiency icon
                         title: 'Proficiency',
-                        value: 'High',
-                        description: 'Strong command over speech',
-                        progress: 0.88,
-                        color: AppColors.success,
-                        subMetrics: const [
+                        value: '${finalScore.toStringAsFixed(1)}/20',
+                        description: _getProficiencyDescription(finalScore),
+                        progress: finalScore / 20, // Convert to percentage for progress bar
+                        color: _getProficiencyColor(finalScore),
+                        subMetrics: [
                           SubMetric(
                             icon: Icons.timer_outlined,
                             title: 'Pause Detection',
-                            value: '90%',
-                            progress: 0.90,
+                            value: '${pauseScore.toStringAsFixed(1)}/10',
+                            progress: pauseScore / 10,
                           ),
                           SubMetric(
                             icon: Icons.error_outline,
                             title: 'Filler Word Detection',
-                            value: '86%',
-                            progress: 0.86,
+                            value: '${fillerScore.toStringAsFixed(1)}/10',
+                            progress: fillerScore / 10,
                           ),
                         ],
                       ),
@@ -318,6 +336,21 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         ],
       ),
     );
+  }
+
+  // Add helper methods for proficiency description and color
+  String _getProficiencyDescription(double score) {
+    if (score >= 16) return 'Excellent command over speech';
+    if (score >= 12) return 'Strong command over speech';
+    if (score >= 8) return 'Good command over speech';
+    return 'Needs improvement';
+  }
+
+  Color _getProficiencyColor(double score) {
+    if (score >= 16) return AppColors.success;
+    if (score >= 12) return AppColors.primaryBlue;
+    if (score >= 8) return AppColors.warning;
+    return AppColors.error;
   }
 }
 
