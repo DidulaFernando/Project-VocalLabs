@@ -1,8 +1,8 @@
-// lib/screens/audio_recording_screen.dart
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:record/record.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
-import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
+import 'dart:typed_data';
+import 'package:universal_html/html.dart' as html;
 
 class AudioRecordingScreen extends StatefulWidget {
   const AudioRecordingScreen({super.key});
@@ -11,100 +11,123 @@ class AudioRecordingScreen extends StatefulWidget {
   State<AudioRecordingScreen> createState() => _AudioRecordingScreenState();
 }
 
-class _AudioRecordingScreenState extends State<AudioRecordingScreen>
-    with SingleTickerProviderStateMixin {
+class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
+  late final AudioRecorder _audioRecorder;
   bool _isRecording = false;
-  bool _isPaused = false;
-  int _seconds = 0;
-  Timer? _timer;
-
-  late AnimationController _animationController;
-  late Animation<double> _pulseAnimation;
+  String _recordingTime = '00:00';
+  DateTime? _startTime;
+  String? _recordedPath;
+  bool _hasRecording = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
+    _audioRecorder = AudioRecorder();
+    _initializeRecorder();
+  }
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+  Future<void> _initializeRecorder() async {
+    try {
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission denied')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error initializing recorder: $e');
+    }
+  }
 
-    _animationController.repeat(reverse: true);
+  Future<void> _startRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        // Create a temporary file path for the recording
+        final String path = 'temp_recording.wav';
+        
+        // Configure recording options
+        await _audioRecorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.wav,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: path,
+        );
+        
+        setState(() {
+          _isRecording = true;
+          _startTime = DateTime.now();
+        });
+        _updateRecordingTime();
+      }
+    } catch (e) {
+      print('Error starting recording: $e');
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    try {
+      final path = await _audioRecorder.stop();
+      setState(() {
+        _isRecording = false;
+        _recordedPath = path;
+        _hasRecording = true;
+      });
+    } catch (e) {
+      print('Error stopping recording: $e');
+    }
+  }
+
+  Future<void> _processAndUpload() async {
+    if (_recordedPath == null) return;
+
+    try {
+      // Read the file as bytes
+      final file = await html.HttpRequest.request(
+        _recordedPath!,
+        responseType: 'arraybuffer',
+      );
+      
+      // Convert to Uint8List
+      final bytes = (file.response as ByteBuffer).asUint8List();
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/playback',
+          arguments: bytes,
+        );
+      }
+    } catch (e) {
+      print('Error processing recording: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error processing recording')),
+      );
+    }
+  }
+
+  void _updateRecordingTime() {
+    if (!_isRecording || _startTime == null) return;
+
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && _isRecording) {
+        final duration = DateTime.now().difference(_startTime!);
+        setState(() {
+          _recordingTime =
+              '${duration.inMinutes.toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+        });
+        _updateRecordingTime();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _animationController.dispose();
+    _audioRecorder.dispose();
     super.dispose();
-  }
-
-  void _startRecording() {
-    setState(() {
-      _isRecording = true;
-      _isPaused = false;
-      _seconds = 0;
-    });
-
-    _startTimer();
-  }
-
-  void _pauseRecording() {
-    if (_isPaused) {
-      _resumeRecording();
-      return;
-    }
-
-    setState(() {
-      _isPaused = true;
-    });
-
-    _timer?.cancel();
-  }
-
-  void _resumeRecording() {
-    setState(() {
-      _isPaused = false;
-    });
-
-    _startTimer();
-  }
-
-  void _stopRecording() {
-    setState(() {
-      _isRecording = false;
-      _isPaused = false;
-    });
-
-    _timer?.cancel();
-  }
-
-  void _uploadRecording() {
-    _stopRecording();
-    // Navigate to review screen
-    Navigator.pushNamed(context, '/playback');
-  }
-
-  void _discardRecording() {
-    _showDiscardDialog();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _seconds++;
-      });
-    });
-  }
-
-  String _formatTime(int seconds) {
-    int minutes = seconds ~/ 60;
-    int remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -114,204 +137,97 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen>
         title: const Text('Record Speech'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () {
-            if (_isRecording) {
-              _showDiscardDialog();
-            } else {
-              Navigator.pop(context);
-            }
-          },
+          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 30),
-              AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale:
-                        _isRecording && !_isPaused
-                            ? _pulseAnimation.value
-                            : 1.0,
-                    child: Container(
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color:
-                            _isRecording
-                                ? _isPaused
-                                    ? Colors.grey.shade300
-                                    : AppColors.primaryBlue.withOpacity(0.2)
-                                : Colors.grey.shade200,
-                        shape: BoxShape.circle,
-                        boxShadow:
-                            _isRecording && !_isPaused
-                                ? [
-                                  BoxShadow(
-                                    color: AppColors.primaryBlue.withOpacity(
-                                      0.3,
-                                    ),
-                                    blurRadius: 20,
-                                    spreadRadius: 10,
-                                  ),
-                                ]
-                                : null,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          _isRecording
-                              ? _isPaused
-                                  ? Icons.mic_off
-                                  : Icons.mic
-                              : Icons.mic_none,
-                          size: 80,
-                          color:
-                              _isRecording
-                                  ? _isPaused
-                                      ? Colors.grey
-                                      : Colors.red
-                                  : AppColors.primaryBlue,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 40),
-              Text(
-                _formatTime(_seconds),
-                style: const TextStyle(
-                  fontSize: 60,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkText,
-                  fontFamily: 'Courier',
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _isRecording
-                    ? _isPaused
-                        ? 'Recording paused'
-                        : 'Recording in progress...'
-                    : 'Tap the microphone to start',
-                style: AppTextStyles.body1.copyWith(color: AppColors.lightText),
-              ),
-              const Spacer(),
-              if (_isRecording) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildActionButton(
-                      icon: _isPaused ? Icons.play_arrow : Icons.pause,
-                      color: _isPaused ? AppColors.success : AppColors.warning,
-                      label: _isPaused ? 'Resume' : 'Pause',
-                      onPressed: _pauseRecording,
-                    ),
-                    _buildActionButton(
-                      icon: Icons.stop,
-                      color: Colors.red,
-                      label: 'Stop',
-                      onPressed: _stopRecording,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomButton(
-                        text: 'Upload',
-                        backgroundColor: AppColors.primaryBlue,
-                        onPressed: _uploadRecording,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomButton(
-                        text: 'Delete',
-                        backgroundColor: Colors.red,
-                        onPressed: _discardRecording,
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                CustomButton(
-                  text: 'Start Recording',
-                  icon: Icons.mic,
-                  onPressed: _startRecording,
+        child: Center(
+          child: Padding(
+            padding: AppPadding.screenPadding,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                Text(
+                  _isRecording ? 'Recording in Progress' : 'Ready to Record',
+                  style: AppTextStyles.heading2,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Speak clearly and at a natural pace for best results',
-                  style: AppTextStyles.body2,
-                  textAlign: TextAlign.center,
+                Text(
+                  _recordingTime,
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryBlue,
+                  ),
                 ),
+                const SizedBox(height: 40),
+                GestureDetector(
+                  onTap: _isRecording ? _stopRecording : _startRecording,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isRecording ? Colors.red : AppColors.primaryBlue,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isRecording ? Colors.red : AppColors.primaryBlue)
+                              .withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isRecording ? Icons.stop : Icons.mic,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Text(
+                  _isRecording
+                      ? 'Tap to stop recording'
+                      : 'Tap the microphone to start',
+                  style: AppTextStyles.body1,
+                ),
+                if (_hasRecording && !_isRecording) ...[
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: _processAndUpload,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                    ),
+                    child: const Text('Upload Recording'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _hasRecording = false;
+                        _recordedPath = null;
+                      });
+                    },
+                    child: const Text('Discard and Record Again'),
+                  ),
+                ],
+                if (!_hasRecording) const Spacer(),
+                if (_isRecording)
+                  const Text(
+                    'Recording will automatically stop after 5 minutes',
+                    style: AppTextStyles.body2,
+                  ),
+                const SizedBox(height: 32),
               ],
-              const SizedBox(height: 30),
-            ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            shape: const CircleBorder(),
-            padding: const EdgeInsets.all(20),
-          ),
-          child: Icon(icon, size: 32),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: AppTextStyles.body2),
-      ],
-    );
-  }
-
-  void _showDiscardDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Discard Recording?'),
-            content: const Text(
-              'Are you sure you want to discard this recording? This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Continue Recording'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Close recording screen
-                },
-                child: const Text(
-                  'Discard',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
     );
   }
 }
