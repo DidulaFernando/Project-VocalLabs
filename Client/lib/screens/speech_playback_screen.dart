@@ -33,6 +33,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
+    _initializeAudioPlayer();
     _audioPlayer.onPositionChanged.listen((Duration position) {
       setState(() {
         _currentPosition = _formatTime(position.inSeconds);
@@ -44,6 +45,31 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
         _totalDuration = _formatTime(duration.inSeconds);
       });
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only initialize if fileBytes is not yet set
+    if (_fileBytes == null) {
+      _fileBytes = ModalRoute.of(context)?.settings.arguments as Uint8List?;
+      if (_fileBytes != null) {
+        _initializeAudioPlayer();
+      }
+    }
+  }
+
+  Future<void> _initializeAudioPlayer() async {
+    try {
+      if (_fileBytes != null) {
+        final blob = html.Blob([_fileBytes!]);
+        _fileUrl = html.Url.createObjectUrlFromBlob(blob);
+        await _audioPlayer.setSource(UrlSource(_fileUrl!));
+        print('Audio initialized in playback screen');
+      }
+    } catch (e) {
+      print('Error initializing audio in playback screen: $e');
+    }
   }
 
   @override
@@ -79,13 +105,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _fileBytes = ModalRoute.of(context)?.settings.arguments as Uint8List?;
-
-    if (_fileBytes != null) {
-      final blob = html.Blob([_fileBytes!]);
-      _fileUrl = html.Url.createObjectUrlFromBlob(blob);
-    }
-
+    // Remove the fileBytes initialization from here since it's now in didChangeDependencies
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -221,18 +241,20 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                         const SizedBox(width: 20),
                         ElevatedButton(
                           onPressed: () async {
-                            setState(() {
-                              _isPlaying = !_isPlaying;
-                            });
-                            if (_isPlaying) {
-                              if (_fileUrl != null) {
-                                await _audioPlayer.setSourceUrl(_fileUrl!);
+                            try {
+                              setState(() {
+                                _isPlaying = !_isPlaying;
+                              });
+                              if (_isPlaying) {
                                 await _audioPlayer.resume();
                               } else {
-                                await _audioPlayer.play(BytesSource(_fileBytes!));
+                                await _audioPlayer.pause();
                               }
-                            } else {
-                              await _audioPlayer.pause();
+                            } catch (e) {
+                              print('Error playing audio: $e');
+                              setState(() {
+                                _isPlaying = false;
+                              });
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -281,10 +303,15 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           child: CustomButton(
                             text: 'View Analysis',
                             onPressed: () {
-                              Navigator.pushNamed(
-                                context, 
-                                '/feedback',
-                                arguments: {'transcription': _transcription ?? ''},
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FeedbackScreen(
+                                    transcription: _transcription ?? '',
+                                    audioData: _fileBytes,
+                                    audioUrl: _fileUrl,
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -314,11 +341,23 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                             text: 'Save and Analyze',
                             onPressed: () async {
                               await _uploadFile();
-                              if (_transcription != null) {
-                                Navigator.pushReplacementNamed(
+                              if (_transcription != null && mounted) {
+                                // Create a new URL for the feedback screen
+                                String? audioUrl;
+                                if (_fileBytes != null) {
+                                  final blob = html.Blob([_fileBytes!]);
+                                  audioUrl = html.Url.createObjectUrlFromBlob(blob);
+                                }
+                                
+                                Navigator.pushReplacement(
                                   context,
-                                  '/feedback',
-                                  arguments: {'transcription': _transcription!},
+                                  MaterialPageRoute(
+                                    builder: (context) => FeedbackScreen(
+                                      transcription: _transcription!,
+                                      audioData: _fileBytes,
+                                      audioUrl: audioUrl,
+                                    ),
+                                  ),
                                 );
                               }
                             },

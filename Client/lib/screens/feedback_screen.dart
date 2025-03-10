@@ -2,12 +2,87 @@ import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
-import 'dart:math' as math;
+import 'dart:math' as math; // Import math for max function
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:typed_data';
+import 'dart:html' as html;
 
-class FeedbackScreen extends StatelessWidget {
-  final String transcription; // Add a variable to store the transcription
+class FeedbackScreen extends StatefulWidget {
+  final String transcription;
+  final Uint8List? audioData; // Add this line
+  final String? audioUrl; // Add this line
 
-  const FeedbackScreen({super.key, required this.transcription});
+  const FeedbackScreen({
+    super.key, 
+    required this.transcription,
+    this.audioData, // Add this line
+    this.audioUrl, // Add this line
+  });
+
+  @override
+  State<FeedbackScreen> createState() => _FeedbackScreenState();
+}
+
+class _FeedbackScreenState extends State<FeedbackScreen> {
+  bool _isPlaying = false;
+  double _sliderValue = 0.0;
+  String _currentPosition = '00:00';
+  String _totalDuration = '05:45';
+  late AudioPlayer _audioPlayer;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioPlayer();
+    _initializeAudio(); // Add this line
+    _audioPlayer.onPositionChanged.listen((Duration position) {
+      setState(() {
+        _currentPosition = _formatTime(position.inSeconds);
+        _sliderValue = position.inSeconds / _parseTimeToSeconds(_totalDuration);
+      });
+    });
+    _audioPlayer.onDurationChanged.listen((Duration duration) {
+      setState(() {
+        _totalDuration = _formatTime(duration.inSeconds);
+      });
+    });
+  }
+
+  Future<void> _initializeAudio() async {
+    try {
+      if (widget.audioData != null) {
+        // Create a temporary URL from the audio data
+        final blob = html.Blob([widget.audioData!]);
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        await _audioPlayer.setSource(UrlSource(url));
+        print('Audio initialized from data');
+      } else if (widget.audioUrl != null) {
+        await _audioPlayer.setSource(UrlSource(widget.audioUrl!));
+        print('Audio initialized from URL');
+      } else {
+        print('No audio source available');
+      }
+    } catch (e) {
+      print('Error initializing audio: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  String _formatTime(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  int _parseTimeToSeconds(String time) {
+    List<String> parts = time.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +224,7 @@ class FeedbackScreen extends StatelessWidget {
                           ),
                           const Spacer(),
                           Text(
-                            '5:45',
+                            _totalDuration,
                             style: AppTextStyles.body2.copyWith(
                               color: AppColors.lightText,
                             ),
@@ -157,14 +232,35 @@ class FeedbackScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const LinearProgressIndicator(
-                        value: 0.3,
-                        backgroundColor: AppColors.lightBlue,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryBlue,
+                      SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 5,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         ),
-                        minHeight: 5,
-                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                        child: Slider(
+                          value: _sliderValue,
+                          onChanged: (value) {
+                            setState(() {
+                              _sliderValue = value;
+                              int totalSeconds = _parseTimeToSeconds(_totalDuration);
+                              int currentSeconds = (totalSeconds * value).round();
+                              _currentPosition = _formatTime(currentSeconds);
+                              _audioPlayer.seek(Duration(seconds: currentSeconds));
+                            });
+                          },
+                          activeColor: AppColors.primaryBlue,
+                          inactiveColor: AppColors.lightBlue,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_currentPosition),
+                            Text(_totalDuration),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -172,7 +268,13 @@ class FeedbackScreen extends StatelessWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.replay_10),
-                            onPressed: () {},
+                            onPressed: () async {
+                              final position = await _audioPlayer.getCurrentPosition();
+                              if (position != null) {
+                                final newPosition = position.inSeconds - 10;
+                                _audioPlayer.seek(Duration(seconds: math.max(0, newPosition)));
+                              }
+                            },
                             color: AppColors.primaryBlue,
                           ),
                           const SizedBox(width: 16),
@@ -180,17 +282,39 @@ class FeedbackScreen extends StatelessWidget {
                             backgroundColor: AppColors.primaryBlue,
                             radius: 24,
                             child: IconButton(
-                              icon: const Icon(
-                                Icons.play_arrow,
+                              icon: Icon(
+                                _isPlaying ? Icons.pause : Icons.play_arrow,
                                 color: Colors.white,
                               ),
-                              onPressed: () {},
+                              onPressed: () async {
+                                try {
+                                  setState(() {
+                                    _isPlaying = !_isPlaying;
+                                  });
+                                  if (_isPlaying) {
+                                    await _audioPlayer.resume();
+                                  } else {
+                                    await _audioPlayer.pause();
+                                  }
+                                } catch (e) {
+                                  print('Error playing audio: $e');
+                                  setState(() {
+                                    _isPlaying = false;
+                                  });
+                                }
+                              },
                             ),
                           ),
                           const SizedBox(width: 16),
                           IconButton(
                             icon: const Icon(Icons.forward_10),
-                            onPressed: () {},
+                            onPressed: () async {
+                              final position = await _audioPlayer.getCurrentPosition();
+                              if (position != null) {
+                                final newPosition = position.inSeconds + 10;
+                                _audioPlayer.seek(Duration(seconds: newPosition));
+                              }
+                            },
                             color: AppColors.primaryBlue,
                           ),
                         ],
@@ -210,7 +334,7 @@ class FeedbackScreen extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          transcription, // Use the actual transcription here
+                          widget.transcription, // Use the actual transcription here
                           style: AppTextStyles.body1.copyWith(height: 1.5),
                         ),
                       ),
