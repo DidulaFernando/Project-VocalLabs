@@ -46,8 +46,8 @@ async def upload_file(file: UploadFile = File(...)):
         print(f"{key}: {value}")
     print("\nProficiency Evaluation:")
     print(f"Final Score: {proficiency_scores['final_score']}/20")
-    print(f"Filler Word Score: {proficiency_scores['filler_score']}/20")
-    print(f"Pause Score: {proficiency_scores['pause_score']}/20")
+    print(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
+    print(f"Pause Score: {proficiency_scores['pause_score']}/10")
 
     return {
         "filename": file.filename,
