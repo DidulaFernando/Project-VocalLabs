@@ -9,6 +9,7 @@ import 'package:universal_html/html.dart' as html;
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // Import dart:convert for JSON decoding
 import 'feedback_screen.dart'; // Import FeedbackScreen
+import 'package:vocallabs_flutter_app/screens/loading_screen.dart';
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -340,7 +341,17 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           child: CustomButton(
                             text: 'Save and Analyze',
                             onPressed: () async {
+                              // Show loading screen first
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoadingScreen(),
+                                ),
+                              );
+
+                              // Perform upload and analysis
                               await _uploadFile();
+                              
                               if (_transcription != null && mounted) {
                                 // Create a new URL for the feedback screen
                                 String? audioUrl;
@@ -349,6 +360,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                                   audioUrl = html.Url.createObjectUrlFromBlob(blob);
                                 }
                                 
+                                // Replace loading screen with feedback screen
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
@@ -488,13 +500,14 @@ class WaveformPainter extends CustomPainter {
 
     const double barWidth = 3;
     const double gap = 3;
+
+    // Draw a simulated waveform
     final int numBars = (size.width / (barWidth + gap)).floor();
     final double progressX = size.width * progress;
 
-    // Draw a simulated waveform
+    // Generate random but consistent heights using sine function
     for (int i = 0; i < numBars; i++) {
       double x = i * (barWidth + gap);
-      // Generate random but consistent heights using sine function
       double normalizedHeight = 0.1 + 0.8 * (0.5 + 0.5 * sin(i * 0.2));
       double height = size.height * normalizedHeight;
       double top = (size.height - height) / 2;
