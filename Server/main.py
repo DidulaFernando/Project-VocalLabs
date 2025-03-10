@@ -4,6 +4,7 @@ import os
 from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
+from models.voice_modulation import analyze_voice_modulation
 import whisper
 app = FastAPI()
 
@@ -36,6 +37,9 @@ async def upload_file(file: UploadFile = File(...)):
     pause_analysis = analyze_mid_sentence_pauses(transcription)
     proficiency_scores = calculate_proficiency_score(filler_analysis, pause_analysis)
     
+    # Analyze voice modulation
+    modulation_analysis = analyze_voice_modulation(file_location)
+    
     print(f"Transcription: {transcription}")
     print(f"Total pause duration: {pause_duration} seconds")
     print("\nPause Analysis (Mid-sentence):")
@@ -48,6 +52,12 @@ async def upload_file(file: UploadFile = File(...)):
     print(f"Final Score: {proficiency_scores['final_score']}/20")
     print(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
     print(f"Pause Score: {proficiency_scores['pause_score']}/10")
+    
+    # Print voice modulation scores
+    print("\nVoice Modulation Analysis:")
+    print(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
+    print(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
+    print(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
 
     return {
         "filename": file.filename,
@@ -55,7 +65,8 @@ async def upload_file(file: UploadFile = File(...)):
         "pause_duration": pause_duration,
         "pause_analysis": pause_analysis,
         "filler_word_analysis": filler_analysis,
-        "proficiency_scores": proficiency_scores
+        "proficiency_scores": proficiency_scores,
+        "modulation_analysis": modulation_analysis
     }
 
 if __name__ == "__main__":

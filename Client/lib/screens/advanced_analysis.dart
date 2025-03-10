@@ -20,15 +20,23 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   late double finalScore;
   late double pauseScore;
   late double fillerScore;
+  // Add new variables for voice modulation
+  late double modulationScore;
+  late double pitchVolumeScore;
+  late double emphasisScore;
 
   @override
   void initState() {
     super.initState();
     // Initialize scores from widget parameters
     final scores = widget.proficiencyScores?['proficiency_scores'] ?? {};
+    final modulation = widget.proficiencyScores?['modulation_analysis']?['scores'] ?? {};
     finalScore = (scores['final_score'] ?? 0.0).toDouble();
     pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
     fillerScore = (scores['filler_score'] ?? 0.0).toDouble();
+    modulationScore = (modulation['total_score'] ?? 0.0).toDouble();
+    pitchVolumeScore = (modulation['pitch_and_volume_score'] ?? 0.0).toDouble();
+    emphasisScore = (modulation['emphasis_score'] ?? 0.0).toDouble();
   }
 
   @override
@@ -134,22 +142,22 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.mic, // Microphone/voice icon
                         title: 'Voice Analysis',
-                        value: '75%',
-                        description: 'Good modulation and clarity',
-                        progress: 0.75,
+                        value: '${modulationScore.toStringAsFixed(1)}/20',
+                        description: 'Voice modulation analysis',
+                        progress: modulationScore / 20,
                         color: AppColors.warning,
-                        subMetrics: const [
+                        subMetrics: [
                           SubMetric(
                             icon: Icons.volume_up,
                             title: 'Volume and Pitch',
-                            value: '73%',
-                            progress: 0.73,
+                            value: '${pitchVolumeScore.toStringAsFixed(1)}/10',
+                            progress: pitchVolumeScore / 10,
                           ),
                           SubMetric(
                             icon: Icons.highlight,
                             title: 'Emphasizing Points',
-                            value: '77%',
-                            progress: 0.77,
+                            value: '${emphasisScore.toStringAsFixed(1)}/10',
+                            progress: emphasisScore / 10,
                           ),
                         ],
                       ),
@@ -338,7 +346,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     );
   }
 
-  // Add helper methods for proficiency description and color
   String _getProficiencyDescription(double score) {
     if (score >= 16) return 'Excellent command over speech';
     if (score >= 12) return 'Strong command over speech';
@@ -432,7 +439,6 @@ class SimpleRadarChartPainter extends CustomPainter {
 
       final labelX = center.dx + (radius + 20) * math.cos(angle);
       final labelY = center.dy + (radius + 20) * math.sin(angle);
-
       final textPainter = TextPainter(
         text: TextSpan(
           text: categories[i],

@@ -1,3 +1,9 @@
 fastapi
 uvicorn
 whisper
+librosa
+pydub
+praat-parselmouth
+webrtcvad
+speechbrain
+pyworld
