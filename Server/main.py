@@ -56,8 +56,8 @@ async def upload_file(file: UploadFile = File(...)):
     # Print voice modulation scores
     print("\nVoice Modulation Analysis:")
     print(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
-    print(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/20")
-    print(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/20")
+    print(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
+    print(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
 
     return {
         "filename": file.filename,
