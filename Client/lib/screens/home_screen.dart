@@ -15,14 +15,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const _DashboardTab(),
-    const SpeechHistoryScreen(),
-    const ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
+        {};
+    final userName = args['name'] ?? 'User';
+
+    final List<Widget> _screens = [
+      _DashboardTab(userName: userName),
+      const SpeechHistoryScreen(),
+      const ProfileScreen(),
+    ];
+
     return Scaffold(
       body: _screens[_selectedIndex],
       bottomNavigationBar: Container(
@@ -71,7 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _DashboardTab extends StatelessWidget {
-  const _DashboardTab();
+  final String userName;
+
+  const _DashboardTab({required this.userName});
 
   @override
   Widget build(BuildContext context) {
@@ -83,14 +90,14 @@ class _DashboardTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hello, Alex', style: AppTextStyles.heading1),
-                      Text(
+                      Text('Hello, $userName', style: AppTextStyles.heading1),
+                      const Text(
                         'Let\'s improve your speaking skills today',
                         style: AppTextStyles.body2,
                       ),
@@ -100,7 +107,7 @@ class _DashboardTab extends StatelessWidget {
                     backgroundColor: AppColors.lightBlue,
                     radius: 24,
                     child: Text(
-                      'A',
+                      userName.isNotEmpty ? userName[0] : 'U',
                       style: TextStyle(
                         color: AppColors.primaryBlue,
                         fontWeight: FontWeight.bold,

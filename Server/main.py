@@ -1,11 +1,17 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel  # Add this import
 import os
 from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
 from models.voice_modulation import analyze_voice_modulation
+from models.user import User, SessionLocal, engine
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
 import whisper
+import logging
+
 app = FastAPI()
 
 # Enable CORS
@@ -23,12 +29,54 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Load your transcription model here
 model = whisper.load_model("medium")
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Pydantic models
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+# Create user endpoint
+@app.post("/register/")
+async def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = pwd_context.hash(user.password)
+    db_user = User(name=user.name, email=user.email, hashed_password=hashed_password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+# Login user endpoint
+@app.post("/login/")
+async def login_user(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if not db_user or not pwd_context.verify(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    return {"message": "Login successful", "name": db_user.name}
+
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_location, "wb") as f:
         f.write(await file.read())
-    print(f"Received file: {file.filename}")
+    app.logger.info(f"Received file: {file.filename}")
 
     # Transcribe the audio file
     result = transcribe_audio(model, file_location)
@@ -40,24 +88,25 @@ async def upload_file(file: UploadFile = File(...)):
     # Analyze voice modulation
     modulation_analysis = analyze_voice_modulation(file_location)
     
-    print(f"Transcription: {transcription}")
-    print(f"Total pause duration: {pause_duration} seconds")
-    print("\nPause Analysis (Mid-sentence):")
+    # Log transcription and evaluation information
+    app.logger.info(f"Transcription: {transcription}")
+    app.logger.info(f"Total pause duration: {pause_duration} seconds")
+    app.logger.info("\nPause Analysis (Mid-sentence):")
     for category, count in pause_analysis.items():
-        print(f"{category}: {count}")
-    print("\nFiller Word Analysis:")
+        app.logger.info(f"{category}: {count}")
+    app.logger.info("\nFiller Word Analysis:")
     for key, value in filler_analysis.items():
-        print(f"{key}: {value}")
-    print("\nProficiency Evaluation:")
-    print(f"Final Score: {proficiency_scores['final_score']}/20")
-    print(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
-    print(f"Pause Score: {proficiency_scores['pause_score']}/10")
+        app.logger.info(f"{key}: {value}")
+    app.logger.info("\nProficiency Evaluation:")
+    app.logger.info(f"Final Score: {proficiency_scores['final_score']}/20")
+    app.logger.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
+    app.logger.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
     
-    # Print voice modulation scores
-    print("\nVoice Modulation Analysis:")
-    print(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
-    print(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
-    print(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
+    # Log voice modulation scores
+    app.logger.info("\nVoice Modulation Analysis:")
+    app.logger.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
+    app.logger.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
+    app.logger.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
 
     return {
         "filename": file.filename,
@@ -71,4 +120,5 @@ async def upload_file(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
+    logging.basicConfig(level=logging.INFO)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
