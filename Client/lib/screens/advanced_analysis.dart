@@ -5,11 +5,8 @@ import 'dart:math' as math;
 
 class AdvancedAnalysisScreen extends StatefulWidget {
   final Map<String, dynamic>? proficiencyScores;
-  
-  const AdvancedAnalysisScreen({
-    super.key,
-    this.proficiencyScores,
-  });
+
+  const AdvancedAnalysisScreen({super.key, this.proficiencyScores});
 
   @override
   State<AdvancedAnalysisScreen> createState() => _AdvancedAnalysisScreenState();
@@ -20,23 +17,64 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   late double finalScore;
   late double pauseScore;
   late double fillerScore;
-  // Add new variables for voice modulation
+  // Voice modulation variables
   late double modulationScore;
   late double pitchVolumeScore;
   late double emphasisScore;
+  // Vocabulary evaluation variables
+  late double vocabularyScore;
+  late double grammarWordSelectionScore;
+  late double pronunciationScore;
+  // Effectiveness of speech variables
+  late double effectivenessScore;
+  late double clearPurposeScore;
+  late double achievementScore;
+  late String effectivenessRating;
 
   @override
   void initState() {
     super.initState();
     // Initialize scores from widget parameters
     final scores = widget.proficiencyScores?['proficiency_scores'] ?? {};
-    final modulation = widget.proficiencyScores?['modulation_analysis']?['scores'] ?? {};
+    final modulation =
+        widget.proficiencyScores?['modulation_analysis']?['scores'] ?? {};
+    final vocabulary = widget.proficiencyScores?['vocabulary_evaluation'] ?? {};
+    final grammarWordSelection = vocabulary['grammar_word_selection'] ?? {};
+    final pronunciation = vocabulary['pronunciation'] ?? {};
+    final effectiveness =
+        widget.proficiencyScores?['effectiveness_evaluation'] ?? {};
+    final clearPurpose = effectiveness['clear_purpose'] ?? {};
+    final achievementPurpose = effectiveness['achievement_of_purpose'] ?? {};
+
+    // Initialize proficiency scores
     finalScore = (scores['final_score'] ?? 0.0).toDouble();
     pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
     fillerScore = (scores['filler_score'] ?? 0.0).toDouble();
+
+    // Initialize voice modulation scores
     modulationScore = (modulation['total_score'] ?? 0.0).toDouble();
     pitchVolumeScore = (modulation['pitch_and_volume_score'] ?? 0.0).toDouble();
     emphasisScore = (modulation['emphasis_score'] ?? 0.0).toDouble();
+
+    // Initialize vocabulary evaluation scores (converting to 20-point scale)
+    vocabularyScore = (vocabulary['vocabulary_score'] ?? 82.0).toDouble() * 0.2;
+    grammarWordSelectionScore =
+        (grammarWordSelection['score'] ?? 80.0).toDouble() * 0.2;
+    pronunciationScore = (pronunciation['score'] ?? 84.0).toDouble() * 0.2;
+
+    // Initialize effectiveness scores (converting to 20-point scale)
+    effectivenessScore =
+        (effectiveness['effectiveness_score'] ?? 78.0).toDouble() * 0.2;
+    clearPurposeScore = (clearPurpose['score'] ?? 76.0).toDouble() * 0.2;
+    achievementScore = (achievementPurpose['score'] ?? 80.0).toDouble() * 0.2;
+    effectivenessRating = effectiveness['rating'] as String? ?? 'Good';
+
+    print('Vocabulary Score: $vocabularyScore/20');
+    print('Grammar/Word Selection Score: $grammarWordSelectionScore/20');
+    print('Pronunciation Score: $pronunciationScore/20');
+    print('Effectiveness Score: $effectivenessScore/20');
+    print('Clear Purpose Score: $clearPurposeScore/20');
+    print('Achievement Score: $achievementScore/20');
   }
 
   @override
@@ -65,7 +103,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 300, // Increased from 220 to 300
-                        child: buildSimpleRadarChart()
+                        child: buildSimpleRadarChart(),
                       ),
                       const SizedBox(height: 24),
                       const Divider(height: 1),
@@ -96,22 +134,26 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.menu_book, // Book/vocabulary icon
                         title: 'Vocabulary Evaluation',
-                        value: 'Advanced',
-                        description: 'Rich and varied word choice',
-                        progress: 0.82,
+                        value: '${vocabularyScore.toStringAsFixed(1)}/20',
+                        description: _getVocabularyDescription(
+                          vocabularyScore * 5,
+                        ), // Scale back for description
+                        progress: vocabularyScore / 20,
                         color: AppColors.accent,
-                        subMetrics: const [
+                        subMetrics: [
                           SubMetric(
                             icon: Icons.spellcheck,
                             title: 'Grammar and Word Selection',
-                            value: '80%',
-                            progress: 0.80,
+                            value:
+                                '${grammarWordSelectionScore.toStringAsFixed(1)}/20',
+                            progress: grammarWordSelectionScore / 20,
                           ),
                           SubMetric(
                             icon: Icons.record_voice_over,
                             title: 'Pronunciation',
-                            value: '84%',
-                            progress: 0.84,
+                            value:
+                                '${pronunciationScore.toStringAsFixed(1)}/20',
+                            progress: pronunciationScore / 20,
                           ),
                         ],
                       ),
@@ -119,22 +161,24 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.psychology_alt, // Brain/thinking icon
                         title: 'Effectiveness of the Speech',
-                        value: 'Good',
-                        description: 'Clear and impactful delivery',
-                        progress: 0.78,
+                        value: '${effectivenessScore.toStringAsFixed(1)}/20',
+                        description: _getEffectivenessDescription(
+                          effectivenessScore * 5,
+                        ), // Scale back for description
+                        progress: effectivenessScore / 20,
                         color: AppColors.success,
-                        subMetrics: const [
+                        subMetrics: [
                           SubMetric(
                             icon: Icons.lightbulb_outline,
                             title: 'Clear Purpose and Relevance',
-                            value: '76%',
-                            progress: 0.76,
+                            value: '${clearPurposeScore.toStringAsFixed(1)}/20',
+                            progress: clearPurposeScore / 20,
                           ),
                           SubMetric(
                             icon: Icons.flag,
                             title: 'Achievement of Purpose',
-                            value: '80%',
-                            progress: 0.80,
+                            value: '${achievementScore.toStringAsFixed(1)}/20',
+                            progress: achievementScore / 20,
                           ),
                         ],
                       ),
@@ -167,7 +211,9 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                         title: 'Proficiency',
                         value: '${finalScore.toStringAsFixed(1)}/20',
                         description: _getProficiencyDescription(finalScore),
-                        progress: finalScore / 20, // Convert to percentage for progress bar
+                        progress:
+                            finalScore /
+                            20, // Convert to percentage for progress bar
                         color: _getProficiencyColor(finalScore),
                         subMetrics: [
                           SubMetric(
@@ -251,9 +297,9 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                             ),
                             const SizedBox(width: 4),
                             Icon(
-                              isExpanded 
-                                ? Icons.keyboard_arrow_up 
-                                : Icons.keyboard_arrow_down,
+                              isExpanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
                               color: AppColors.lightText,
                             ),
                           ],
@@ -278,16 +324,18 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         ),
         if (isExpanded) ...[
           const SizedBox(height: 16),
-          ...subMetrics.map((subMetric) => Padding(
-            padding: const EdgeInsets.only(left: 50),
-            child: _buildSubMetricItem(
-              icon: subMetric.icon,
-              title: subMetric.title,
-              value: subMetric.value,
-              progress: subMetric.progress,
-              color: color.withOpacity(0.8),
+          ...subMetrics.map(
+            (subMetric) => Padding(
+              padding: const EdgeInsets.only(left: 50),
+              child: _buildSubMetricItem(
+                icon: subMetric.icon,
+                title: subMetric.title,
+                value: subMetric.value,
+                progress: subMetric.progress,
+                color: color.withOpacity(0.8),
+              ),
             ),
-          )).toList(),
+          ),
           const SizedBox(height: 8),
         ],
       ],
@@ -353,11 +401,56 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     return 'Needs improvement';
   }
 
+  String _getVocabularyDescription(double score) {
+    if (score >= 17) return 'Advanced vocabulary usage';
+    if (score >= 15) return 'Strong vocabulary range';
+    if (score >= 13) return 'Good word selection';
+    return 'Basic vocabulary usage';
+  }
+
+  String _getEffectivenessDescription(double score) {
+    if (score >= 17) return 'Exceptional speech delivery';
+    if (score >= 15) return 'Very effective communication';
+    if (score >= 13) return 'Good speech structure';
+    return 'Basic communication skills';
+  }
+
   Color _getProficiencyColor(double score) {
     if (score >= 16) return AppColors.success;
     if (score >= 12) return AppColors.primaryBlue;
     if (score >= 8) return AppColors.warning;
     return AppColors.error;
+  }
+
+  // Moved inside the class to access state variables
+  Widget buildSimpleRadarChart() {
+    const categories = [
+      'Speech Development',
+      'Vocabulary Evaluation',
+      'Effectiveness of the Speech',
+      'Voice Analysis',
+      'Proficiency',
+    ];
+
+    // Use actual values from class variables where available
+    final values = [
+      0.85, // Speech Development (hardcoded for now)
+      vocabularyScore / 20, // Vocabulary Evaluation (normalize to 0-1)
+      effectivenessScore / 20, // Effectiveness of the Speech (normalize to 0-1)
+      modulationScore / 20, // Voice Analysis (normalize to 0-1)
+      finalScore / 20, // Proficiency (normalize to 0-1)
+    ];
+
+    return CustomPaint(
+      size: const Size(double.infinity, 280), // Increased from 200 to 280
+      painter: SimpleRadarChartPainter(
+        values: values,
+        categories: categories,
+        fillColor: AppColors.primaryBlue.withOpacity(0.2),
+        borderColor: AppColors.primaryBlue,
+        textColor: AppColors.lightText,
+      ),
+    );
   }
 }
 
@@ -373,28 +466,6 @@ class SubMetric {
     required this.value,
     required this.progress,
   });
-}
-
-Widget buildSimpleRadarChart() {
-  const categories = [
-    'Speech Development',
-    'Vocabulary Evaluation',
-    'Effectiveness of the Speech',
-    'Voice Analysis',
-    'Proficiency',
-  ];
-  final values = [0.85, 0.82, 0.78, 0.75, 0.88];
-
-  return CustomPaint(
-    size: const Size(double.infinity, 280), // Increased from 200 to 280
-    painter: SimpleRadarChartPainter(
-      values: values,
-      categories: categories,
-      fillColor: AppColors.primaryBlue.withOpacity(0.2),
-      borderColor: AppColors.primaryBlue,
-      textColor: AppColors.lightText,
-    ),
-  );
 }
 
 class SimpleRadarChartPainter extends CustomPainter {
@@ -415,14 +486,16 @@ class SimpleRadarChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width < size.height ? size.width / 2 - 40 : size.height / 2 - 40;
+    final radius =
+        size.width < size.height ? size.width / 2 - 40 : size.height / 2 - 40;
     final count = values.length;
 
     // Draw background grid
-    final gridPaint = Paint()
-      ..color = Colors.grey.shade300
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    final gridPaint =
+        Paint()
+          ..color = Colors.grey.shade300
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
 
     // Draw grid circles
     for (int i = 1; i <= 4; i++) {
@@ -468,21 +541,24 @@ class SimpleRadarChartPainter extends CustomPainter {
     }
     path.close();
 
-    final fillPaint = Paint()
-      ..color = fillColor
-      ..style = PaintingStyle.fill;
+    final fillPaint =
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill;
     canvas.drawPath(path, fillPaint);
 
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    final borderPaint =
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
     canvas.drawPath(path, borderPaint);
 
     // Draw points
-    final pointPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.fill;
+    final pointPaint =
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.fill;
     for (int i = 0; i < count; i++) {
       final angle = 2 * math.pi * i / count - math.pi / 2;
       final x = center.dx + radius * values[i] * math.cos(angle);
