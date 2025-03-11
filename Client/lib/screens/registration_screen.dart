@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -18,6 +20,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,6 +29,66 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _register() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (name.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      // Show error message
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      return;
+    }
+
+    // Prepare data for submission
+    final registrationData = {
+      'name': name,
+      'email': email,
+      'password': password,
+    };
+
+    // Show loading indicator
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Make a request to the backend
+    final response = await http.post(
+      Uri.parse('http://localhost:8000/register/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(registrationData),
+    );
+
+    // Hide loading indicator
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (response.statusCode == 200) {
+      // Navigate to the next screen or show success message
+      Navigator.pushReplacementNamed(context, '/startup');
+    } else {
+      // Show error message
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Registration failed')));
+    }
   }
 
   @override
@@ -197,12 +260,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                CustomButton(
-                  text: 'Register',
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/startup');
-                  },
-                ),
+                CustomButton(text: 'Register', onPressed: _register),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
