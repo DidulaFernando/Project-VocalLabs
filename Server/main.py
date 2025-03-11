@@ -5,7 +5,10 @@ from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
 from models.voice_modulation import analyze_voice_modulation
+from models.vocabulary_evaluation import calculate_vocabulary_evaluation
+from models.speech_effectiveness import evaluate_speech_effectiveness
 import whisper
+
 app = FastAPI()
 
 # Enable CORS
@@ -33,12 +36,20 @@ async def upload_file(file: UploadFile = File(...)):
     # Transcribe the audio file
     result = transcribe_audio(model, file_location)
     transcription, pause_duration = process_transcription(result)
+    
+    # Analyze filler words and pauses
     filler_analysis = analyze_filler_words(result)
     pause_analysis = analyze_mid_sentence_pauses(transcription)
     proficiency_scores = calculate_proficiency_score(filler_analysis, pause_analysis)
     
     # Analyze voice modulation
     modulation_analysis = analyze_voice_modulation(file_location)
+    
+    # Analyze vocabulary (grammar, word selection, pronunciation)
+    vocabulary_evaluation = calculate_vocabulary_evaluation(result, transcription)
+    
+    # NEW: Analyze speech effectiveness
+    effectiveness_evaluation = evaluate_speech_effectiveness(transcription)
     
     print(f"Transcription: {transcription}")
     print(f"Total pause duration: {pause_duration} seconds")
@@ -58,6 +69,19 @@ async def upload_file(file: UploadFile = File(...)):
     print(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
     print(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
     print(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
+    
+    # Print vocabulary evaluation scores
+    print("\nVocabulary Evaluation:")
+    print(f"Overall Score: {vocabulary_evaluation['vocabulary_score']}/100")
+    print(f"Grammar and Word Selection Score: {vocabulary_evaluation['grammar_word_selection']['score']}/100")
+    print(f"Pronunciation Score: {vocabulary_evaluation['pronunciation']['score']}/100")
+    
+    # Print speech effectiveness scores
+    print("\nSpeech Effectiveness:")
+    print(f"Overall Score: {effectiveness_evaluation['effectiveness_score']}/100")
+    print(f"Clear Purpose Score: {effectiveness_evaluation['clear_purpose']['score']}/100")
+    print(f"Achievement of Purpose Score: {effectiveness_evaluation['achievement_of_purpose']['score']}/100")
+    print(f"Rating: {effectiveness_evaluation['rating']}")
 
     return {
         "filename": file.filename,
@@ -66,7 +90,9 @@ async def upload_file(file: UploadFile = File(...)):
         "pause_analysis": pause_analysis,
         "filler_word_analysis": filler_analysis,
         "proficiency_scores": proficiency_scores,
-        "modulation_analysis": modulation_analysis
+        "modulation_analysis": modulation_analysis,
+        "vocabulary_evaluation": vocabulary_evaluation,
+        "effectiveness_evaluation": effectiveness_evaluation
     }
 
 if __name__ == "__main__":
