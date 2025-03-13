@@ -34,6 +34,10 @@ model = whisper.load_model("medium")
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Dependency to get DB session
 def get_db():
     db = SessionLocal()
@@ -78,7 +82,7 @@ async def upload_file(file: UploadFile = File(...)):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_location, "wb") as f:
         f.write(await file.read())
-    app.logger.info(f"Received file: {file.filename}")
+    logger.info(f"Received file: {file.filename}")
 
     # Transcribe the audio file
     result = transcribe_audio(model, file_location)
@@ -99,37 +103,37 @@ async def upload_file(file: UploadFile = File(...)):
     effectiveness_evaluation = evaluate_speech_effectiveness(transcription)
     
     # Log transcription and evaluation information
-    app.logger.info(f"Transcription: {transcription}")
-    app.logger.info(f"Total pause duration: {pause_duration} seconds")
-    app.logger.info("\nPause Analysis (Mid-sentence):")
+    logger.info(f"Transcription: {transcription}")
+    logger.info(f"Total pause duration: {pause_duration} seconds")
+    logger.info("\nPause Analysis (Mid-sentence):")
     for category, count in pause_analysis.items():
-        app.logger.info(f"{category}: {count}")
-    app.logger.info("\nFiller Word Analysis:")
+        logger.info(f"{category}: {count}")
+    logger.info("\nFiller Word Analysis:")
     for key, value in filler_analysis.items():
-        app.logger.info(f"{key}: {value}")
-    app.logger.info("\nProficiency Evaluation:")
-    app.logger.info(f"Final Score: {proficiency_scores['final_score']}/20")
-    app.logger.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
-    app.logger.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
+        logger.info(f"{key}: {value}")
+    logger.info("\nProficiency Evaluation:")
+    logger.info(f"Final Score: {proficiency_scores['final_score']}/20")
+    logger.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
+    logger.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
     
     # Log voice modulation scores
-    app.logger.info("\nVoice Modulation Analysis:")
-    app.logger.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
-    app.logger.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
-    app.logger.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
+    logger.info("\nVoice Modulation Analysis:")
+    logger.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
+    logger.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
+    logger.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
     
     # Log vocabulary evaluation scores
-    app.logger.info("\nVocabulary Evaluation:")
-    app.logger.info(f"Overall Score: {vocabulary_evaluation['vocabulary_score']}/100")
-    app.logger.info(f"Grammar and Word Selection Score: {vocabulary_evaluation['grammar_word_selection']['score']}/100")
-    app.logger.info(f"Pronunciation Score: {vocabulary_evaluation['pronunciation']['score']}/100")
+    logger.info("\nVocabulary Evaluation:")
+    logger.info(f"Overall Score: {vocabulary_evaluation['vocabulary_score']}/100")
+    logger.info(f"Grammar and Word Selection Score: {vocabulary_evaluation['grammar_word_selection']['score']}/100")
+    logger.info(f"Pronunciation Score: {vocabulary_evaluation['pronunciation']['score']}/100")
     
     # Log speech effectiveness scores
-    app.logger.info("\nSpeech Effectiveness:")
-    app.logger.info(f"Overall Score: {effectiveness_evaluation['effectiveness_score']}/100")
-    app.logger.info(f"Clear Purpose Score: {effectiveness_evaluation['clear_purpose']['score']}/100")
-    app.logger.info(f"Achievement of Purpose Score: {effectiveness_evaluation['achievement_of_purpose']['score']}/100")
-    app.logger.info(f"Rating: {effectiveness_evaluation['rating']}")
+    logger.info("\nSpeech Effectiveness:")
+    logger.info(f"Overall Score: {effectiveness_evaluation['effectiveness_score']}/100")
+    logger.info(f"Clear Purpose Score: {effectiveness_evaluation['clear_purpose']['score']}/100")
+    logger.info(f"Achievement of Purpose Score: {effectiveness_evaluation['achievement_of_purpose']['score']}/100")
+    logger.info(f"Rating: {effectiveness_evaluation['rating']}")
 
     return {
         "filename": file.filename,
