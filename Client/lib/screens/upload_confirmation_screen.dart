@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart'; // Use file_selector instead of file_picker
+import 'dart:typed_data'; // Add this import
 
 class UploadConfirmationScreen extends StatelessWidget {
   const UploadConfirmationScreen({super.key});
 
   Future<void> _pickFile(BuildContext context) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['mp3', 'wav', 'm4a'],
+    final typeGroup = XTypeGroup(
+      label: 'audio',
+      extensions: ['mp3', 'wav', 'm4a'],
     );
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
 
-    if (result != null) {
-      // Handle the selected file
-      PlatformFile file = result.files.single;
-      if (file.bytes != null) {
-        // Navigate to SpeechPlaybackScreen with the selected file bytes
-        Navigator.pushReplacementNamed(
-          context,
-          '/playback',
-          arguments: file.bytes,
-        );
-      }
+    if (file != null) {
+      final Uint8List fileBytes = await file.readAsBytes();
+      // Navigate to SpeechPlaybackScreen with the selected file bytes
+      Navigator.pushReplacementNamed(
+        context,
+        '/playback',
+        arguments: fileBytes,
+      );
     } else {
       // User canceled the picker
     }

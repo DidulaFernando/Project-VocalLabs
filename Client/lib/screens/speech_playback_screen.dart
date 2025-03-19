@@ -5,11 +5,12 @@ import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:universal_html/html.dart' as html;
+import 'package:file_selector/file_selector.dart'; // Ensure file_selector is imported
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // Import dart:convert for JSON decoding
 import 'feedback_screen.dart'; // Import FeedbackScreen
 import 'package:vocallabs_flutter_app/screens/loading_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -38,7 +39,11 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     _audioPlayer.onPositionChanged.listen((Duration position) {
       setState(() {
         _currentPosition = _formatTime(position.inSeconds);
-        _sliderValue = position.inSeconds / (_parseTimeToSeconds(_totalDuration) == 0 ? 1 : _parseTimeToSeconds(_totalDuration));
+        _sliderValue =
+            position.inSeconds /
+            (_parseTimeToSeconds(_totalDuration) == 0
+                ? 1
+                : _parseTimeToSeconds(_totalDuration));
       });
     });
     _audioPlayer.onDurationChanged.listen((Duration duration) {
@@ -63,9 +68,8 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   Future<void> _initializeAudioPlayer() async {
     try {
       if (_fileBytes != null) {
-        final blob = html.Blob([_fileBytes!]);
-        _fileUrl = html.Url.createObjectUrlFromBlob(blob);
-        await _audioPlayer.setSource(UrlSource(_fileUrl!));
+        // Use the audio data directly without creating a URL
+        await _audioPlayer.setSourceBytes(_fileBytes!);
         print('Audio initialized in playback screen');
       }
     } catch (e) {
@@ -82,13 +86,15 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   Future<dynamic> _uploadFile() async {
     if (_fileBytes == null) return;
 
-    final uri = Uri.parse('http://localhost:8000/upload/');
+    final uri = Uri.parse('http://10.0.2.2:8000/upload/'); // Update the URL
     final request = http.MultipartRequest('POST', uri)
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        _fileBytes!,
-        filename: 'uploaded_audio.wav',
-      ));
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          _fileBytes!,
+          filename: 'uploaded_audio.wav',
+        ),
+      );
 
     final response = await request.send();
 
@@ -229,13 +235,18 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           onPressed: () {
                             // Rewind 10 seconds
                             double newValue =
-                                _sliderValue - (10 / _parseTimeToSeconds(_totalDuration));
+                                _sliderValue -
+                                (10 / _parseTimeToSeconds(_totalDuration));
                             setState(() {
                               _sliderValue = newValue < 0 ? 0 : newValue;
                               int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) * _sliderValue).round();
+                                  (_parseTimeToSeconds(_totalDuration) *
+                                          _sliderValue)
+                                      .round();
                               _currentPosition = _formatTime(currentSeconds);
-                              _audioPlayer.seek(Duration(seconds: currentSeconds));
+                              _audioPlayer.seek(
+                                Duration(seconds: currentSeconds),
+                              );
                             });
                           },
                           color: AppColors.primaryBlue,
@@ -276,13 +287,18 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                           onPressed: () {
                             // Forward 10 seconds
                             double newValue =
-                                _sliderValue + (10 / _parseTimeToSeconds(_totalDuration));
+                                _sliderValue +
+                                (10 / _parseTimeToSeconds(_totalDuration));
                             setState(() {
                               _sliderValue = newValue > 1 ? 1 : newValue;
                               int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) * _sliderValue).round();
+                                  (_parseTimeToSeconds(_totalDuration) *
+                                          _sliderValue)
+                                      .round();
                               _currentPosition = _formatTime(currentSeconds);
-                              _audioPlayer.seek(Duration(seconds: currentSeconds));
+                              _audioPlayer.seek(
+                                Duration(seconds: currentSeconds),
+                              );
                             });
                           },
                           color: AppColors.primaryBlue,
@@ -300,96 +316,102 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
               // Buttons section with conditional rendering
               widget.isFromHistory
                   ? Row(
-                      children: [
-                        Expanded(
-                          child: CustomButton(
-                            text: 'View Analysis',
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FeedbackScreen(
-                                    transcription: _transcription ?? '',
-                                    audioData: _fileBytes,
-                                    audioUrl: _fileUrl,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Share',
-                            isOutlined: true,
-                            onPressed: () {
-                              // Implement share functionality
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Sharing speech recording...'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Save and Analyze',
-                            onPressed: () async {
-                              // Show loading screen first
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LoadingScreen(),
-                                ),
-                              );
-
-                              // Perform upload and analysis
-                              final apiResponse = await _uploadFile();
-                              
-                              if (_transcription != null && mounted && apiResponse != null) {
-                                // Create a new URL for the feedback screen
-                                String? audioUrl;
-                                if (_fileBytes != null) {
-                                  final blob = html.Blob([_fileBytes!]);
-                                  audioUrl = html.Url.createObjectUrlFromBlob(blob);
-                                }
-                                
-                                // Replace loading screen with feedback screen
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => FeedbackScreen(
-                                      transcription: _transcription!,
+                    children: [
+                      Expanded(
+                        child: CustomButton(
+                          text: 'View Analysis',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => FeedbackScreen(
+                                      transcription: _transcription ?? '',
                                       audioData: _fileBytes,
-                                      audioUrl: audioUrl,
-                                      apiResponse: apiResponse, // Add this parameter
+                                      audioUrl: _fileUrl,
                                     ),
-                                  ),
-                                );
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Share',
+                          isOutlined: true,
+                          onPressed: () {
+                            // Implement share functionality
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sharing speech recording...'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  )
+                  : Row(
+                    children: [
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Save and Analyze',
+                          onPressed: () async {
+                            // Show loading screen first
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoadingScreen(),
+                              ),
+                            );
+
+                            // Perform upload and analysis
+                            final apiResponse = await _uploadFile();
+
+                            if (_transcription != null &&
+                                mounted &&
+                                apiResponse != null) {
+                              // Create a new URL for the feedback screen
+                              String? audioUrl;
+                              if (_fileBytes != null) {
+                                audioUrl =
+                                    'data:audio/wav;base64,' +
+                                    base64Encode(_fileBytes!);
                               }
-                            },
-                          ),
+
+                              // Replace loading screen with feedback screen
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => FeedbackScreen(
+                                        transcription: _transcription!,
+                                        audioData: _fileBytes,
+                                        audioUrl: audioUrl,
+                                        apiResponse:
+                                            apiResponse, // Add this parameter
+                                      ),
+                                ),
+                              );
+                            }
+                          },
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Discard',
-                            isOutlined: true,
-                            backgroundColor: Colors.red,
-                            onPressed: () {
-                              _showDiscardDialog();
-                            },
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Discard',
+                          isOutlined: true,
+                          backgroundColor: Colors.red,
+                          onPressed: () {
+                            _showDiscardDialog();
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
 
               // Transcript preview with sufficient bottom padding
               if (_transcription != null) ...[
@@ -449,30 +471,31 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   void _showDiscardDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard Recording?'),
-        content: const Text(
-          'Are you sure you want to discard this recording and start over?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/analysis');
-            },
-            child: const Text(
-              'Discard and Re-record',
-              style: TextStyle(color: Colors.red),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Discard Recording?'),
+            content: const Text(
+              'Are you sure you want to discard this recording and start over?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushReplacementNamed(context, '/analysis');
+                },
+                child: const Text(
+                  'Discard and Re-record',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -490,15 +513,17 @@ class WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint activePaint = Paint()
-      ..color = activeColor
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+    final Paint activePaint =
+        Paint()
+          ..color = activeColor
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round;
 
-    final Paint inactivePaint = Paint()
-      ..color = inactiveColor
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+    final Paint inactivePaint =
+        Paint()
+          ..color = inactiveColor
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round;
 
     const double barWidth = 3;
     const double gap = 3;
