@@ -17,8 +17,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const _DashboardTab(),
-    const SpeechHistoryScreen(), // Use SpeechHistoryScreen instead of _HistoryTab
-    const ProfileScreen(), // Use ProfileScreen instead of _ProfileTab
+    const SpeechHistoryScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -66,22 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton:
-          _selectedIndex == 0
-              ? Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 40.0,
-                ), // Adjust the value as needed
-                child: FloatingActionButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/analysis');
-                  },
-                  backgroundColor: AppColors.primaryBlue,
-                  child: const Icon(Icons.mic),
-                ),
-              )
-              : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }
@@ -128,50 +112,45 @@ class _DashboardTab extends StatelessWidget {
               const SizedBox(height: 30),
               CardLayout(
                 backgroundColor: AppColors.primaryBlue,
-                child: Row(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ready to Practice?',
-                            style: AppTextStyles.heading2.copyWith(
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Record a speech and get instant feedback',
-                            style: AppTextStyles.body2.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          CustomButton(
-                            text: 'Start Recording',
-                            backgroundColor: Colors.white,
-                            textColor: AppColors.primaryBlue,
-                            icon: Icons.mic,
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/analysis');
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.mic,
-                        size: 40,
+                    Text(
+                      'Ready to Practice?',
+                      style: AppTextStyles.heading2.copyWith(
                         color: Colors.white,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Record a speech and get instant feedback',
+                      style: AppTextStyles.body2.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    CustomButton(
+                      text: 'Start Recording',
+                      backgroundColor: Colors.white,
+                      textColor: AppColors.primaryBlue,
+                      icon: Icons.mic,
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/analysis');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    CustomButton(
+                      text: 'Upload Speech',
+                      backgroundColor: Colors.white,
+                      textColor: AppColors.primaryBlue,
+                      icon: Icons.upload,
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/upload_confirmation');
+                      },
                     ),
                   ],
                 ),
@@ -183,21 +162,33 @@ class _DashboardTab extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildProgressItem(
-                      label: 'Speaking Clarity',
+                      label: 'Speech Development',
                       progress: 0.75,
                       color: AppColors.primaryBlue,
                     ),
                     const SizedBox(height: 16),
                     _buildProgressItem(
-                      label: 'Filler Word Reduction',
+                      label: 'Proficiency',
                       progress: 0.60,
                       color: AppColors.warning,
                     ),
                     const SizedBox(height: 16),
                     _buildProgressItem(
-                      label: 'Pace Management',
+                      label: 'Voice Analysis',
                       progress: 0.85,
                       color: AppColors.success,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProgressItem(
+                      label: 'Speech Effectiveness',
+                      progress: 0.56,
+                      color: const Color.fromARGB(255, 149, 90, 148),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProgressItem(
+                      label: 'Vocabulary Evaluation',
+                      progress: 0.71,
+                      color: const Color.fromARGB(255, 81, 161, 165),
                     ),
                   ],
                 ),
@@ -209,7 +200,14 @@ class _DashboardTab extends StatelessWidget {
                   const Text('Recent Speeches', style: AppTextStyles.heading2),
                   TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/speech_history');
+                      // Navigate to History tab
+                      final homeState =
+                          context.findAncestorStateOfType<_HomeScreenState>();
+                      if (homeState != null) {
+                        homeState.setState(() {
+                          homeState._selectedIndex = 1;
+                        });
+                      }
                     },
                     child: const Text(
                       'View All',
@@ -224,6 +222,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Today, 2:30 PM',
                 duration: '5:45',
                 score: 82,
+                context: context,
               ),
               const SizedBox(height: 12),
               _buildRecentSpeechItem(
@@ -231,6 +230,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Yesterday, 10:15 AM',
                 duration: '12:20',
                 score: 78,
+                context: context,
               ),
               const SizedBox(height: 12),
               _buildRecentSpeechItem(
@@ -238,6 +238,7 @@ class _DashboardTab extends StatelessWidget {
                 date: 'Feb 24, 4:45 PM',
                 duration: '3:10',
                 score: 75,
+                context: context,
               ),
             ],
           ),
@@ -281,10 +282,12 @@ class _DashboardTab extends StatelessWidget {
     required String date,
     required String duration,
     required int score,
+    required BuildContext context,
   }) {
     return CardLayout(
       onTap: () {
-        // Navigate to speech details
+        // Navigate to speech playback when tapping on history item
+        Navigator.pushNamed(context, '/playback_history');
       },
       child: Row(
         children: [
@@ -322,19 +325,9 @@ class _DashboardTab extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.lightText),
+          const Icon(Icons.play_arrow, color: AppColors.primaryBlue),
         ],
       ),
     );
-  }
-}
-
-// Add placeholder widgets for other tabs
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('History Tab'));
   }
 }

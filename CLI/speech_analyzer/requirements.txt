@@ -1,0 +1,13 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+pydantic==2.4.2
+pydantic-settings==2.0.3
+spacy==3.7.2
+nltk==3.8.1
+whisper==1.1.10
+librosa==0.10.1
+numpy==1.26.0
+torch==2.1.1
+sentence-transformers==2.2.2
+python-jose[cryptography]==3.3.0

@@ -92,7 +92,10 @@ class ProfileScreen extends StatelessWidget {
                         icon: Icons.person_outline,
                         title: 'My Account',
                         onTap: () {
-                          // Navigate to account settings
+                          Navigator.pushNamed(
+                            context,
+                            '/account',
+                          ); // Update this line
                         },
                       ),
                       const Divider(),

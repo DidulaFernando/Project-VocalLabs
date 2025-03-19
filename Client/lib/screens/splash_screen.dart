@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/welcome');
     });
   }
 
@@ -70,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen>
                         16.0,
                       ), // Adjust the radius as needed
                       child: Image.asset(
-                        'assets/images/Our_Logo.jpg',
+                        'assets/images/Our_Logo.png',
                         width: 120, // Increased width
                         height: 120, // Increased height
                       ),

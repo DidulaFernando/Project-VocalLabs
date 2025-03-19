@@ -15,7 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _soundEnabled = true;
   bool _automaticAnalysis = true;
   bool _darkModeEnabled = false;
-  String _selectedLanguage = 'English';
+  final String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
@@ -79,55 +79,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _darkModeEnabled = value;
                         });
                         // Apply theme change
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text('Speech Settings', style: AppTextStyles.heading2),
-              const SizedBox(height: 16),
-              CardLayout(
-                child: Column(
-                  children: [
-                    _buildDropdownSetting(
-                      icon: Icons.language,
-                      title: 'Language',
-                      subtitle: 'Set your primary speech language',
-                      value: _selectedLanguage,
-                      options: const [
-                        'English',
-                        'Spanish',
-                        'French',
-                        'German',
-                        'Mandarin',
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedLanguage = value;
-                          });
-                        }
-                      },
-                    ),
-                    const Divider(),
-                    _buildNavigationSetting(
-                      icon: Icons.speed,
-                      title: 'Target Speech Rate',
-                      subtitle: 'Set your ideal words per minute',
-                      value: '120-150 wpm',
-                      onTap: () {
-                        // Navigate to speech rate settings
-                      },
-                    ),
-                    const Divider(),
-                    _buildNavigationSetting(
-                      icon: Icons.text_fields,
-                      title: 'Filler Word Detection',
-                      subtitle: 'Customize detected filler words',
-                      value: '8 words',
-                      onTap: () {
-                        // Navigate to filler word settings
                       },
                     ),
                   ],
