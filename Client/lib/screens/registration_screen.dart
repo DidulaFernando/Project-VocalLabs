@@ -70,7 +70,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     // Make a request to the backend
     final response = await http.post(
-      Uri.parse('http://localhost:8000/register/'),
+      Uri.parse('http://10.0.2.2:8000/register/'), // Update the URL
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(registrationData),
     );
