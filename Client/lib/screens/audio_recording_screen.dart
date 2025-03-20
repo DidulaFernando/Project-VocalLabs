@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'dart:typed_data';
+import 'dart:io' if (dart.library.html) 'dart:html' as io;
 import 'package:universal_html/html.dart' as html;
+import 'package:path_provider/path_provider.dart' as path_provider;
 
 class AudioRecordingScreen extends StatefulWidget {
   const AudioRecordingScreen({super.key});
@@ -18,11 +20,15 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
   DateTime? _startTime;
   String? _recordedPath;
   bool _hasRecording = false;
+  bool _isWeb = false;
+  bool _isProcessing = false;
+  final int _maxRecordingDuration = 300; // 5 minutes in seconds
 
   @override
   void initState() {
     super.initState();
     _audioRecorder = AudioRecorder();
+    _isWeb = identical(0, 0.0);
     _initializeRecorder();
   }
 
@@ -37,17 +43,28 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         }
       }
     } catch (e) {
-      print('Error initializing recorder: $e');
+      debugPrint('Error initializing recorder: $e');
     }
   }
 
   Future<void> _startRecording() async {
+    setState(() {
+      _recordingTime = '00:00';
+    });
+
     try {
       if (await _audioRecorder.hasPermission()) {
-        // Create a temporary file path for the recording
-        final String path = 'temp_recording.wav';
-        
-        // Configure recording options
+        String path;
+
+        if (_isWeb) {
+          path = 'temp_recording.wav';
+        } else {
+          final directory = await path_provider.getTemporaryDirectory();
+          path = '${directory.path}/temp_recording.wav';
+        }
+
+        debugPrint('Recording path: $path');
+
         await _audioRecorder.start(
           const RecordConfig(
             encoder: AudioEncoder.wav,
@@ -56,56 +73,110 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
           ),
           path: path,
         );
-        
+
         setState(() {
           _isRecording = true;
           _startTime = DateTime.now();
+          _hasRecording = false;
         });
         _updateRecordingTime();
+        _startMaxDurationTimer();
+        debugPrint('Recording started successfully');
       }
     } catch (e) {
-      print('Error starting recording: $e');
+      debugPrint('Error starting recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error starting recording: $e')));
+      }
     }
+  }
+
+  void _startMaxDurationTimer() {
+    Future.delayed(Duration(seconds: _maxRecordingDuration), () {
+      if (_isRecording) {
+        _stopRecording();
+      }
+    });
   }
 
   Future<void> _stopRecording() async {
     try {
-      final path = await _audioRecorder.stop();
+      debugPrint('Attempting to stop recording...');
+
+      final isRecording = await _audioRecorder.isRecording();
+      debugPrint('Is recorder actually recording? $isRecording');
+
+      if (isRecording) {
+        final finalTime = _recordingTime;
+
+        final path = await _audioRecorder.stop();
+        debugPrint('Recording stopped, path: $path');
+
+        setState(() {
+          _isRecording = false;
+          _recordedPath = path;
+          _hasRecording = path != null;
+          _recordingTime = finalTime;
+        });
+      } else {
+        debugPrint('Recorder was not actually recording');
+        setState(() {
+          _isRecording = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error stopping recording: $e')));
+      }
+
       setState(() {
         _isRecording = false;
-        _recordedPath = path;
-        _hasRecording = true;
       });
-    } catch (e) {
-      print('Error stopping recording: $e');
     }
   }
 
   Future<void> _processAndUpload() async {
     if (_recordedPath == null) return;
 
+    setState(() {
+      _isProcessing = true;
+    });
+
     try {
-      // Read the file as bytes
-      final file = await html.HttpRequest.request(
-        _recordedPath!,
-        responseType: 'arraybuffer',
-      );
-      
-      // Convert to Uint8List
-      final bytes = (file.response as ByteBuffer).asUint8List();
+      Uint8List bytes;
+
+      if (_isWeb) {
+        final file = await html.HttpRequest.request(
+          _recordedPath!,
+          responseType: 'arraybuffer',
+        );
+        bytes = (file.response as ByteBuffer).asUint8List();
+      } else {
+        final file = io.File(_recordedPath!);
+        bytes = await file.readAsBytes();
+      }
 
       if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/playback',
-          arguments: bytes,
-        );
+        Navigator.pushReplacementNamed(context, '/playback', arguments: bytes);
       }
     } catch (e) {
-      print('Error processing recording: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error processing recording')),
-      );
+      debugPrint('Error processing recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error processing recording: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -124,6 +195,14 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     });
   }
 
+  void _discardRecording() {
+    setState(() {
+      _hasRecording = false;
+      _recordedPath = null;
+      _recordingTime = '00:00';
+    });
+  }
+
   @override
   void dispose() {
     _audioRecorder.dispose();
@@ -132,6 +211,15 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final String statusText;
+    if (_isRecording) {
+      statusText = 'Recording in Progress';
+    } else if (_hasRecording) {
+      statusText = 'Recording Complete';
+    } else {
+      statusText = 'Ready to Record';
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Record Speech'),
@@ -148,10 +236,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 40),
-                Text(
-                  _isRecording ? 'Recording in Progress' : 'Ready to Record',
-                  style: AppTextStyles.heading2,
-                ),
+                Text(statusText, style: AppTextStyles.heading2),
                 const SizedBox(height: 16),
                 Text(
                   _recordingTime,
@@ -162,61 +247,66 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                GestureDetector(
-                  onTap: _isRecording ? _stopRecording : _startRecording,
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isRecording ? Colors.red : AppColors.primaryBlue,
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isRecording ? Colors.red : AppColors.primaryBlue)
-                              .withOpacity(0.3),
-                          blurRadius: 20,
-                          spreadRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      _isRecording ? Icons.stop : Icons.mic,
-                      size: 48,
-                      color: Colors.white,
+                if (!_hasRecording || _isRecording)
+                  InkWell(
+                    onTap: _isRecording ? _stopRecording : _startRecording,
+                    customBorder: const CircleBorder(),
+                    child: Ink(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            _isRecording ? Colors.red : AppColors.primaryBlue,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isRecording
+                                    ? Colors.red
+                                    : AppColors.primaryBlue)
+                                .withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _isRecording ? Icons.stop : Icons.mic,
+                        size: 48,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 40),
                 Text(
                   _isRecording
                       ? 'Tap to stop recording'
+                      : _hasRecording
+                      ? 'Recording saved'
                       : 'Tap the microphone to start',
                   style: AppTextStyles.body1,
                 ),
                 if (_hasRecording && !_isRecording) ...[
                   const SizedBox(height: 40),
                   ElevatedButton(
-                    onPressed: _processAndUpload,
+                    onPressed: _isProcessing ? null : _processAndUpload,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 16,
                       ),
                     ),
-                    child: const Text('Upload Recording'),
+                    child:
+                        _isProcessing
+                            ? const CircularProgressIndicator()
+                            : const Text('Upload Recording'),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _hasRecording = false;
-                        _recordedPath = null;
-                      });
-                    },
+                    onPressed: _discardRecording,
                     child: const Text('Discard and Record Again'),
                   ),
                 ],
-                if (!_hasRecording) const Spacer(),
+                if (!_hasRecording && !_isRecording) const Spacer(),
                 if (_isRecording)
                   const Text(
                     'Recording will automatically stop after 5 minutes',
