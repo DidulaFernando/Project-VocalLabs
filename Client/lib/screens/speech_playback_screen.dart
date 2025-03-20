@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert'; // Import dart:convert for JSON decoding
 import 'feedback_screen.dart'; // Import FeedbackScreen
 import 'package:vocallabs_flutter_app/screens/loading_screen.dart';
+import 'package:vocallabs_flutter_app/models/speech_model.dart';
+import 'package:vocallabs_flutter_app/services/speech_storage_service.dart';
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -29,6 +31,10 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   Uint8List? _fileBytes;
   String? _fileUrl;
   String? _transcription; // Add a variable to store the transcription
+  String _speechTopic = ''; // Add variable for speech topic
+  String _speechType = 'Prepared Speech';
+  String _expectedDuration = '5–7 minutes';
+  late SpeechModel _speechModel;
 
   @override
   void initState() {
@@ -50,17 +56,38 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
         _totalDuration = _formatTime(duration.inSeconds);
       });
     });
+    _speechModel = SpeechModel(
+      topic: _speechTopic,
+      speechType: _speechType,
+      expectedDuration: _expectedDuration,
+    );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Only initialize if fileBytes is not yet set
-    if (_fileBytes == null) {
-      _fileBytes = ModalRoute.of(context)?.settings.arguments as Uint8List?;
-      if (_fileBytes != null) {
-        _initializeAudioPlayer();
-      }
+    // Check if arguments is a Map (new format) or Uint8List (old format)
+    final args = ModalRoute.of(context)?.settings.arguments;
+
+    if (args is Map<String, dynamic>) {
+      _fileBytes = args['fileBytes'] as Uint8List?;
+      _speechTopic = args['topic'] as String? ?? '';
+      _speechType = args['speechType'] as String? ?? 'Prepared Speech';
+      _expectedDuration = args['duration'] as String? ?? '5–7 minutes';
+      
+      // Create or update speech model
+      _speechModel = SpeechModel(
+        topic: _speechTopic,
+        audioData: _fileBytes,
+        speechType: _speechType,
+        expectedDuration: _expectedDuration,
+      );
+    } else if (args is Uint8List) {
+      _fileBytes = args;
+    }
+
+    if (_fileBytes != null) {
+      _initializeAudioPlayer();
     }
   }
 
@@ -95,6 +122,11 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
         ),
       );
 
+    // Add topic to the request
+    if (_speechTopic.isNotEmpty) {
+      request.fields['topic'] = _speechTopic;
+    }
+
     final response = await request.send();
 
     if (response.statusCode == 200) {
@@ -102,6 +134,12 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       final jsonResponse = jsonDecode(responseBody);
       setState(() {
         _transcription = jsonResponse['transcription'];
+        
+        // Update speech model with transcription and analysis
+        _speechModel.transcription = _transcription;
+        _speechModel.analysis = jsonResponse;
+        _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
+        _speechModel.score = 82; // Default or calculate from response
       });
       return jsonResponse; // Return the full response
     } else {
@@ -135,12 +173,24 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
               CardLayout(
                 child: Column(
                   children: [
-                    const Text(
-                      'Speech Title',
-                      style: TextStyle(
+                    Text(
+                      _speechTopic.isNotEmpty
+                          ? _speechTopic
+                          : 'Speech Recording',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _speechType,
+                      style: AppTextStyles.body2.copyWith(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -158,10 +208,15 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Duration: $_totalDuration',
+                          'Duration: $_totalDuration (Expected: $_expectedDuration)',
                           style: AppTextStyles.body2,
                         ),
-                        const SizedBox(width: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 4),
                         const Text('Score: 82', style: AppTextStyles.body2),
@@ -357,44 +412,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Save and Analyze',
-                          onPressed: () async {
-                            // Show loading screen first
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const LoadingScreen(),
-                              ),
-                            );
-
-                            // Perform upload and analysis
-                            final apiResponse = await _uploadFile();
-
-                            if (_transcription != null &&
-                                mounted &&
-                                apiResponse != null) {
-                              // Create a new URL for the feedback screen
-                              String? audioUrl;
-                              if (_fileBytes != null) {
-                                audioUrl =
-                                    'data:audio/wav;base64,${base64Encode(_fileBytes!)}';
-                              }
-
-                              // Replace loading screen with feedback screen
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => FeedbackScreen(
-                                        transcription: _transcription!,
-                                        audioData: _fileBytes,
-                                        audioUrl: audioUrl,
-                                        apiResponse:
-                                            apiResponse, // Add this parameter
-                                      ),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed: _handleSaveAndAnalyze,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -495,6 +513,56 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
             ],
           ),
     );
+  }
+
+  Future<void> _saveSpeechToHistory(Map<String, dynamic>? apiResponse) async {
+    // Update speech model with final data
+    _speechModel.analysis = apiResponse;
+    _speechModel.transcription = _transcription;
+    _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
+    _speechModel.speechType = _speechType;
+    _speechModel.expectedDuration = _expectedDuration;
+    
+    // Save to storage
+    await SpeechStorageService.saveSpeech(_speechModel);
+  }
+
+  void _handleSaveAndAnalyze() async {
+    // Show loading screen first
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoadingScreen(),
+      ),
+    );
+
+    // Perform upload and analysis
+    final apiResponse = await _uploadFile();
+
+    if (_transcription != null && mounted && apiResponse != null) {
+      // Save speech data to history
+      await _saveSpeechToHistory(apiResponse);
+
+      // Create a new URL for the feedback screen
+      String? audioUrl;
+      if (_fileBytes != null) {
+        audioUrl = 'data:audio/wav;base64,${base64Encode(_fileBytes!)}';
+      }
+
+      // Replace loading screen with feedback screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FeedbackScreen(
+            transcription: _transcription!,
+            audioData: _fileBytes,
+            audioUrl: audioUrl,
+            apiResponse: apiResponse,
+            speechModel: _speechModel, // Pass speech model to feedback screen
+          ),
+        ),
+      );
+    }
   }
 }
 

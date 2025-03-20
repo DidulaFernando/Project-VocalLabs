@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:intl/intl.dart';
+import 'package:vocallabs_flutter_app/models/speech_model.dart';
+import 'package:vocallabs_flutter_app/services/speech_storage_service.dart';
 
 class SpeechHistoryScreen extends StatefulWidget {
   const SpeechHistoryScreen({super.key});
@@ -12,58 +14,29 @@ class SpeechHistoryScreen extends StatefulWidget {
 }
 
 class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
-  final List<Map<String, dynamic>> _speechHistory = [
-    {
-      'title': 'Toastmaster Introduction',
-      'date': DateTime.now(),
-      'duration': '5:45',
-      'score': 82,
-    },
-    {
-      'title': 'Project Presentation',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'duration': '12:20',
-      'score': 78,
-    },
-    {
-      'title': 'Practice Session',
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'duration': '3:10',
-      'score': 75,
-    },
-    {
-      'title': 'Team Meeting',
-      'date': DateTime.now().subtract(const Duration(days: 5)),
-      'duration': '8:35',
-      'score': 81,
-    },
-    {
-      'title': 'Speech Contest Practice',
-      'date': DateTime.now().subtract(const Duration(days: 7)),
-      'duration': '7:15',
-      'score': 79,
-    },
-    {
-      'title': 'Product Demo',
-      'date': DateTime.now().subtract(const Duration(days: 10)),
-      'duration': '15:20',
-      'score': 83,
-    },
-    {
-      'title': 'Q&A Session',
-      'date': DateTime.now().subtract(const Duration(days: 14)),
-      'duration': '4:50',
-      'score': 76,
-    },
-  ];
-
+  List<SpeechModel> _speechHistory = [];
+  List<SpeechModel> _filteredSpeeches = [];
   String _searchQuery = '';
-  List<Map<String, dynamic>> _filteredSpeeches = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredSpeeches = List.from(_speechHistory);
+    _loadSpeeches();
+  }
+
+  Future<void> _loadSpeeches() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final speeches = await SpeechStorageService.getSpeeches();
+    
+    setState(() {
+      _speechHistory = speeches;
+      _filteredSpeeches = List.from(speeches);
+      _isLoading = false;
+    });
   }
 
   void _filterSpeeches(String query) {
@@ -72,14 +45,13 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
       if (query.isEmpty) {
         _filteredSpeeches = List.from(_speechHistory);
       } else {
-        _filteredSpeeches =
-            _speechHistory
-                .where(
-                  (speech) => speech['title'].toLowerCase().contains(
-                    query.toLowerCase(),
-                  ),
-                )
-                .toList();
+        _filteredSpeeches = _speechHistory
+            .where(
+              (speech) => speech.topic.toLowerCase().contains(
+                query.toLowerCase(),
+              ),
+            )
+            .toList();
       }
     });
   }
@@ -116,8 +88,9 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
             ),
           ),
           Expanded(
-            child:
-                _filteredSpeeches.isEmpty
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredSpeeches.isEmpty
                     ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -145,10 +118,10 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
                       itemBuilder: (context, index) {
                         final speech = _filteredSpeeches[index];
                         return _buildSpeechHistoryItem(
-                          title: speech['title'],
-                          date: speech['date'],
-                          duration: speech['duration'],
-                          score: speech['score'],
+                          title: speech.topic,
+                          date: speech.recordedAt,
+                          duration: _formatDuration(speech.duration ?? 0),
+                          score: speech.score ?? 0,
                         );
                       },
                     ),
@@ -262,8 +235,8 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
                 onTap: () {
                   setState(() {
                     _filteredSpeeches.sort(
-                      (a, b) => (b['date'] as DateTime).compareTo(
-                        a['date'] as DateTime,
+                      (a, b) => (b.recordedAt).compareTo(
+                        a.recordedAt,
                       ),
                     );
                   });
@@ -277,7 +250,7 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
                   setState(() {
                     _filteredSpeeches.sort(
                       (a, b) =>
-                          (b['score'] as int).compareTo(a['score'] as int),
+                          (b.score ?? 0).compareTo(a.score ?? 0),
                     );
                   });
                   Navigator.pop(context);
@@ -289,8 +262,8 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
                 onTap: () {
                   setState(() {
                     _filteredSpeeches.sort((a, b) {
-                      final durationA = _parseDuration(a['duration']);
-                      final durationB = _parseDuration(b['duration']);
+                      final durationA = a.duration ?? 0;
+                      final durationB = b.duration ?? 0;
                       return durationB.compareTo(durationA);
                     });
                   });
@@ -303,8 +276,8 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
                 onTap: () {
                   setState(() {
                     _filteredSpeeches.sort(
-                      (a, b) => (a['title'] as String).compareTo(
-                        b['title'] as String,
+                      (a, b) => (a.topic).compareTo(
+                        b.topic,
                       ),
                     );
                   });
@@ -336,6 +309,13 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(double seconds) {
+    final int totalSeconds = seconds.round();
+    final int minutes = totalSeconds ~/ 60;
+    final int remainingSeconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   int _parseDuration(String duration) {

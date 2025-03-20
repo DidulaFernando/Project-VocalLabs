@@ -6,12 +6,14 @@ import 'dart:math' as math; // Import math for max function
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
 import 'package:vocallabs_flutter_app/screens/advanced_analysis.dart'; // Add this import
+import 'package:vocallabs_flutter_app/models/speech_model.dart';
 
 class FeedbackScreen extends StatefulWidget {
   final String transcription;
   final Uint8List? audioData; // Add this line
   final String? audioUrl; // Add this line
   final Map<String, dynamic>? apiResponse; // Add this line
+  final SpeechModel? speechModel; // Add speech model parameter
 
   const FeedbackScreen({
     super.key,
@@ -19,6 +21,7 @@ class FeedbackScreen extends StatefulWidget {
     this.audioData, // Add this line
     this.audioUrl, // Add this line
     this.apiResponse, // Add this line
+    this.speechModel, // Add this parameter
   });
 
   @override
@@ -32,6 +35,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   String _totalDuration = '05:45';
   late AudioPlayer _audioPlayer;
   Map<String, dynamic>? _apiResponse; // Add this line to store API response
+  late SpeechModel _speechModel;
+  bool _isWithinDuration = true;
+  String _durationFeedback = '';
+  int _recordingSeconds = 0;
+  int _minDurationSeconds = 300; // Default 5 minutes
+  int _maxDurationSeconds = 420; // Default 7 minutes
 
   @override
   void initState() {
@@ -39,6 +48,31 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     _audioPlayer = AudioPlayer();
     _initializeAudio(); // Add this line
     _apiResponse = widget.apiResponse; // Initialize API response from widget
+    
+    // Initialize speech model from widget or create new one
+    _speechModel = widget.speechModel ?? 
+      SpeechModel(
+        topic: 'Speech Analysis',
+        transcription: widget.transcription,
+        analysis: widget.apiResponse,
+        audioData: widget.audioData,
+      );
+    
+    // Extract duration information if available in apiResponse
+    if (_apiResponse != null) {
+      _recordingSeconds = _apiResponse!['recordingSeconds'] as int? ?? 0;
+      _isWithinDuration = _apiResponse!['isWithinDuration'] as bool? ?? true;
+      _durationFeedback = _apiResponse!['durationFeedback'] as String? ?? '';
+      _minDurationSeconds = _apiResponse!['minDurationSeconds'] as int? ?? 300;
+      _maxDurationSeconds = _apiResponse!['maxDurationSeconds'] as int? ?? 420;
+      
+      // Ensure we have the expected duration in the model
+      if (_speechModel.expectedDuration == "5–7 minutes" && 
+          _apiResponse!.containsKey('duration')) {
+        _speechModel.expectedDuration = _apiResponse!['duration'] as String;
+      }
+    }
+
     _audioPlayer.onPositionChanged.listen((Duration position) {
       setState(() {
         _currentPosition = _formatTime(position.inSeconds);
@@ -86,11 +120,40 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
+  // Helper method to format seconds into mm:ss
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+  
+  // Helper method to get color based on duration compliance
+  Color _getDurationComplianceColor() {
+    if (_isWithinDuration) {
+      return AppColors.success;
+    } else if (_recordingSeconds < _minDurationSeconds) {
+      return AppColors.warning;
+    } else {
+      return AppColors.error;
+    }
+  }
+  
+  // Helper method to get icon based on duration compliance
+  IconData _getDurationComplianceIcon() {
+    if (_isWithinDuration) {
+      return Icons.check_circle;
+    } else if (_recordingSeconds < _minDurationSeconds) {
+      return Icons.warning;
+    } else {
+      return Icons.error;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Speech Analysis'),
+        title: Text(_speechModel.topic), // Use speech topic in app bar
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
@@ -106,6 +169,97 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 16),
+                // Display speech topic
+                CardLayout(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Speech Topic:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.lightText,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _speechModel.topic,
+                                    style: AppTextStyles.body1.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryBlue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _speechModel.speechType,
+                                  style: AppTextStyles.body2.copyWith(
+                                    color: AppColors.primaryBlue,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _speechModel.expectedDuration,
+                                  style: AppTextStyles.body2.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        
+                        // Add duration compliance indicator
+                        if (_recordingSeconds > 0) ...[
+                          const Divider(height: 32),
+                          Row(
+                            children: [
+                              Icon(
+                                _getDurationComplianceIcon(),
+                                color: _getDurationComplianceColor(),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Duration: ${_formatDuration(_recordingSeconds)}',
+                                      style: AppTextStyles.body2.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _durationFeedback,
+                                      style: AppTextStyles.body2.copyWith(
+                                        color: _getDurationComplianceColor(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 // Overall Score Card - Now clickable
                 GestureDetector(
                   onTap: () {

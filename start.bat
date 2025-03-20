@@ -7,7 +7,7 @@ start cmd /k "uvicorn main:app --reload"
 
 :: Start Flutter frontend
 cd ../Client
-start cmd /k "flutter run -d chrome"
+start cmd /k "flutter run"
 
-echo Both the backend and frontend have been started.
+echo Both the backend and frontend have been started.
 exit
