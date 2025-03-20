@@ -5,12 +5,11 @@ import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:file_selector/file_selector.dart'; // Ensure file_selector is imported
+// Ensure file_selector is imported
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // Import dart:convert for JSON decoding
 import 'feedback_screen.dart'; // Import FeedbackScreen
 import 'package:vocallabs_flutter_app/screens/loading_screen.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
@@ -377,8 +376,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
                               String? audioUrl;
                               if (_fileBytes != null) {
                                 audioUrl =
-                                    'data:audio/wav;base64,' +
-                                    base64Encode(_fileBytes!);
+                                    'data:audio/wav;base64,${base64Encode(_fileBytes!)}';
                               }
 
                               // Replace loading screen with feedback screen

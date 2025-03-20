@@ -22,14 +22,14 @@ class _HomeScreenState extends State<HomeScreen> {
         {};
     final userName = args['name'] ?? 'User';
 
-    final List<Widget> _screens = [
+    final List<Widget> screens = [
       _DashboardTab(userName: userName),
       const SpeechHistoryScreen(),
       const ProfileScreen(),
     ];
 
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: screens[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -108,7 +108,7 @@ class _DashboardTab extends StatelessWidget {
                     radius: 24,
                     child: Text(
                       userName.isNotEmpty ? userName[0] : 'U',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.primaryBlue,
                         fontWeight: FontWeight.bold,
                       ),

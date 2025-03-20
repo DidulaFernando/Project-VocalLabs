@@ -5,7 +5,6 @@ import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'dart:math' as math; // Import math for max function
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
-import 'dart:html' as html;
 import 'package:vocallabs_flutter_app/screens/advanced_analysis.dart'; // Add this import
 
 class FeedbackScreen extends StatefulWidget {
@@ -15,7 +14,7 @@ class FeedbackScreen extends StatefulWidget {
   final Map<String, dynamic>? apiResponse; // Add this line
 
   const FeedbackScreen({
-    super.key, 
+    super.key,
     required this.transcription,
     this.audioData, // Add this line
     this.audioUrl, // Add this line
@@ -32,7 +31,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   String _currentPosition = '00:00';
   String _totalDuration = '05:45';
   late AudioPlayer _audioPlayer;
-  Map<String, dynamic>? _apiResponse;  // Add this line to store API response
+  Map<String, dynamic>? _apiResponse; // Add this line to store API response
 
   @override
   void initState() {
@@ -56,10 +55,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   Future<void> _initializeAudio() async {
     try {
       if (widget.audioData != null) {
-        // Create a temporary URL from the audio data
-        final blob = html.Blob([widget.audioData!]);
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        await _audioPlayer.setSource(UrlSource(url));
+        // Use the audio data directly without creating a URL
+        await _audioPlayer.setSourceBytes(widget.audioData!);
         print('Audio initialized from data');
       } else if (widget.audioUrl != null) {
         await _audioPlayer.setSource(UrlSource(widget.audioUrl!));
@@ -116,9 +113,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AdvancedAnalysisScreen(
-                            proficiencyScores: _apiResponse,
-                          ),
+                          builder:
+                              (context) => AdvancedAnalysisScreen(
+                                proficiencyScores: _apiResponse,
+                              ),
                         ),
                       );
                     }
@@ -201,19 +199,26 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                       ),
                       const SizedBox(height: 16),
                       SliderTheme(
-                        data: SliderThemeData(
+                        data: const SliderThemeData(
                           trackHeight: 5,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          thumbShape: RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
                         ),
                         child: Slider(
                           value: _sliderValue,
                           onChanged: (value) {
                             setState(() {
                               _sliderValue = value;
-                              int totalSeconds = _parseTimeToSeconds(_totalDuration);
-                              int currentSeconds = (totalSeconds * value).round();
+                              int totalSeconds = _parseTimeToSeconds(
+                                _totalDuration,
+                              );
+                              int currentSeconds =
+                                  (totalSeconds * value).round();
                               _currentPosition = _formatTime(currentSeconds);
-                              _audioPlayer.seek(Duration(seconds: currentSeconds));
+                              _audioPlayer.seek(
+                                Duration(seconds: currentSeconds),
+                              );
                             });
                           },
                           activeColor: AppColors.primaryBlue,
@@ -237,10 +242,13 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                           IconButton(
                             icon: const Icon(Icons.replay_10),
                             onPressed: () async {
-                              final position = await _audioPlayer.getCurrentPosition();
+                              final position =
+                                  await _audioPlayer.getCurrentPosition();
                               if (position != null) {
                                 final newPosition = position.inSeconds - 10;
-                                _audioPlayer.seek(Duration(seconds: math.max(0, newPosition)));
+                                _audioPlayer.seek(
+                                  Duration(seconds: math.max(0, newPosition)),
+                                );
                               }
                             },
                             color: AppColors.primaryBlue,
@@ -277,10 +285,13 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                           IconButton(
                             icon: const Icon(Icons.forward_10),
                             onPressed: () async {
-                              final position = await _audioPlayer.getCurrentPosition();
+                              final position =
+                                  await _audioPlayer.getCurrentPosition();
                               if (position != null) {
                                 final newPosition = position.inSeconds + 10;
-                                _audioPlayer.seek(Duration(seconds: newPosition));
+                                _audioPlayer.seek(
+                                  Duration(seconds: newPosition),
+                                );
                               }
                             },
                             color: AppColors.primaryBlue,
@@ -302,7 +313,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          widget.transcription, // Use the actual transcription here
+                          widget
+                              .transcription, // Use the actual transcription here
                           style: AppTextStyles.body1.copyWith(height: 1.5),
                         ),
                       ),

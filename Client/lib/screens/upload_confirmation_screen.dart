@@ -8,7 +8,7 @@ class UploadConfirmationScreen extends StatelessWidget {
   const UploadConfirmationScreen({super.key});
 
   Future<void> _pickFile(BuildContext context) async {
-    final typeGroup = XTypeGroup(
+    const typeGroup = XTypeGroup(
       label: 'audio',
       extensions: ['mp3', 'wav', 'm4a'],
     );

@@ -1,13 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel  # Add this import
 import os
 from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
 from models.voice_modulation import analyze_voice_modulation
-from models.vocabulary_evaluation import calculate_vocabulary_evaluation
-from models.speech_effectiveness import evaluate_speech_effectiveness
 from models.user import User, SessionLocal, engine
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -33,10 +31,6 @@ model = whisper.load_model("medium")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Dependency to get DB session
 def get_db():
@@ -82,13 +76,11 @@ async def upload_file(file: UploadFile = File(...)):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_location, "wb") as f:
         f.write(await file.read())
-    logger.info(f"Received file: {file.filename}")
+    logging.info(f"Received file: {file.filename}")
 
     # Transcribe the audio file
     result = transcribe_audio(model, file_location)
     transcription, pause_duration = process_transcription(result)
-    
-    # Analyze filler words and pauses
     filler_analysis = analyze_filler_words(result)
     pause_analysis = analyze_mid_sentence_pauses(transcription)
     proficiency_scores = calculate_proficiency_score(filler_analysis, pause_analysis)
@@ -96,44 +88,25 @@ async def upload_file(file: UploadFile = File(...)):
     # Analyze voice modulation
     modulation_analysis = analyze_voice_modulation(file_location)
     
-    # Analyze vocabulary (grammar, word selection, pronunciation)
-    vocabulary_evaluation = calculate_vocabulary_evaluation(result, transcription)
-    
-    # Analyze speech effectiveness
-    effectiveness_evaluation = evaluate_speech_effectiveness(transcription)
-    
     # Log transcription and evaluation information
-    logger.info(f"Transcription: {transcription}")
-    logger.info(f"Total pause duration: {pause_duration} seconds")
-    logger.info("\nPause Analysis (Mid-sentence):")
+    logging.info(f"Transcription: {transcription}")
+    logging.info(f"Total pause duration: {pause_duration} seconds")
+    logging.info("\nPause Analysis (Mid-sentence):")
     for category, count in pause_analysis.items():
-        logger.info(f"{category}: {count}")
-    logger.info("\nFiller Word Analysis:")
+        logging.info(f"{category}: {count}")
+    logging.info("\nFiller Word Analysis:")
     for key, value in filler_analysis.items():
-        logger.info(f"{key}: {value}")
-    logger.info("\nProficiency Evaluation:")
-    logger.info(f"Final Score: {proficiency_scores['final_score']}/20")
-    logger.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
-    logger.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
+        logging.info(f"{key}: {value}")
+    logging.info("\nProficiency Evaluation:")
+    logging.info(f"Final Score: {proficiency_scores['final_score']}/20")
+    logging.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
+    logging.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
     
     # Log voice modulation scores
-    logger.info("\nVoice Modulation Analysis:")
-    logger.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
-    logger.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
-    logger.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
-    
-    # Log vocabulary evaluation scores
-    logger.info("\nVocabulary Evaluation:")
-    logger.info(f"Overall Score: {vocabulary_evaluation['vocabulary_score']}/100")
-    logger.info(f"Grammar and Word Selection Score: {vocabulary_evaluation['grammar_word_selection']['score']}/100")
-    logger.info(f"Pronunciation Score: {vocabulary_evaluation['pronunciation']['score']}/100")
-    
-    # Log speech effectiveness scores
-    logger.info("\nSpeech Effectiveness:")
-    logger.info(f"Overall Score: {effectiveness_evaluation['effectiveness_score']}/100")
-    logger.info(f"Clear Purpose Score: {effectiveness_evaluation['clear_purpose']['score']}/100")
-    logger.info(f"Achievement of Purpose Score: {effectiveness_evaluation['achievement_of_purpose']['score']}/100")
-    logger.info(f"Rating: {effectiveness_evaluation['rating']}")
+    logging.info("\nVoice Modulation Analysis:")
+    logging.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
+    logging.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
+    logging.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
 
     return {
         "filename": file.filename,
@@ -142,9 +115,7 @@ async def upload_file(file: UploadFile = File(...)):
         "pause_analysis": pause_analysis,
         "filler_word_analysis": filler_analysis,
         "proficiency_scores": proficiency_scores,
-        "modulation_analysis": modulation_analysis,
-        "vocabulary_evaluation": vocabulary_evaluation,
-        "effectiveness_evaluation": effectiveness_evaluation
+        "modulation_analysis": modulation_analysis
     }
 
 if __name__ == "__main__":

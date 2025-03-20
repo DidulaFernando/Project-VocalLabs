@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-whisper
+openai-whisper
 librosa
 pydub
 praat-parselmouth
