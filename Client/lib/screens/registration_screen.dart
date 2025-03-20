@@ -87,7 +87,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // Show error message
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Registration failed')));
+      ).showSnackBar(const SnackBar(content: Text('Registration failed')));
     }
   }
 
