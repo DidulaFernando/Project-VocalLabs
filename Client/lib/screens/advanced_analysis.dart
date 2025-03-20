@@ -160,7 +160,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       const Divider(height: 32),
                       _buildMetricItem(
                         icon: Icons.psychology_alt, // Brain/thinking icon
-                        title: 'Effectiveness of the Speech',
+                        title: 'Effectiveness',
                         value: '${effectivenessScore.toStringAsFixed(1)}/20',
                         description: _getEffectivenessDescription(
                           effectivenessScore * 5,

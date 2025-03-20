@@ -42,15 +42,16 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Get details from arguments
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       setState(() {
         _speechTopic = args['topic'] as String? ?? '';
         _speechType = args['speechType'] as String? ?? 'Prepared Speech';
         _expectedDuration = args['duration'] as String? ?? '5–7 minutes';
-        
+
         // Parse the duration range
         _parseDurationRange(_expectedDuration);
       });
@@ -64,40 +65,41 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Enter Speech Topic'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: topicController,
-            decoration: const InputDecoration(
-              labelText: 'Speech Topic',
-              hintText: 'E.g., Introduction to Machine Learning',
-              maxLength: 100,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Enter Speech Topic'),
+            content: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: topicController,
+                maxLength: 100, // Moved outside of InputDecoration
+                decoration: const InputDecoration(
+                  labelText: 'Speech Topic',
+                  hintText: 'E.g., Introduction to Machine Learning',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a topic for your speech';
+                  }
+                  return null;
+                },
+              ),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter a topic for your speech';
-              }
-              return null;
-            },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(context, topicController.text.trim());
+                  }
+                },
+                child: const Text('Continue'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, topicController.text.trim());
-              }
-            },
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
     );
 
     if (result == null) {
@@ -156,7 +158,7 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
       // Add timing compliance to the analysis results
       final bool isWithinDuration = _isWithinExpectedRange(_seconds);
       final String durationFeedback = _getDurationStatusMessage(_seconds);
-      
+
       Navigator.pushReplacementNamed(
         context,
         '/feedback',
@@ -185,12 +187,12 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
     // Handle formats like "5-7 minutes" or "4–6 minutes"
     final pattern = RegExp(r'(\d+)[\s\-–]+(\d+)');
     final match = pattern.firstMatch(durationRange);
-    
+
     if (match != null && match.groupCount >= 2) {
       try {
         final minMinutes = int.parse(match.group(1)!);
         final maxMinutes = int.parse(match.group(2)!);
-        
+
         _minDurationSeconds = minMinutes * 60;
         _maxDurationSeconds = maxMinutes * 60;
       } catch (e) {
@@ -198,12 +200,12 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
       }
     }
   }
-  
+
   // Calculate if current duration is within expected range
   bool _isWithinExpectedRange(int seconds) {
     return seconds >= _minDurationSeconds && seconds <= _maxDurationSeconds;
   }
-  
+
   // Get color based on duration status
   Color _getDurationStatusColor(int seconds) {
     if (seconds < _minDurationSeconds) {
@@ -214,7 +216,7 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
       return AppColors.warning; // Exceeded maximum
     }
   }
-  
+
   // Get duration status message
   String _getDurationStatusMessage(int seconds) {
     if (seconds < _minDurationSeconds) {
@@ -278,7 +280,11 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.subject, size: 16, color: AppColors.primaryBlue),
+                      const Icon(
+                        Icons.subject,
+                        size: 16,
+                        color: AppColors.primaryBlue,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -294,7 +300,11 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.category, size: 16, color: AppColors.primaryBlue),
+                      const Icon(
+                        Icons.category,
+                        size: 16,
+                        color: AppColors.primaryBlue,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         _speechType,
@@ -304,7 +314,11 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
                         ),
                       ),
                       const Spacer(),
-                      const Icon(Icons.timer, size: 16, color: AppColors.primaryBlue),
+                      const Icon(
+                        Icons.timer,
+                        size: 16,
+                        color: AppColors.primaryBlue,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _expectedDuration,
@@ -330,17 +344,18 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.lightBlue,
-                boxShadow: _isRecording
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(
-                            0.5 * _animationController.value,
+                boxShadow:
+                    _isRecording
+                        ? [
+                          BoxShadow(
+                            color: AppColors.primaryBlue.withOpacity(
+                              0.5 * _animationController.value,
+                            ),
+                            spreadRadius: 20 * _animationController.value,
+                            blurRadius: 30,
                           ),
-                          spreadRadius: 20 * _animationController.value,
-                          blurRadius: 30,
-                        ),
-                      ]
-                    : [],
+                        ]
+                        : [],
               ),
               child: Icon(
                 _isRecording ? Icons.mic : Icons.mic_none,
@@ -356,10 +371,13 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
           style: TextStyle(
             fontSize: 48,
             fontWeight: FontWeight.bold,
-            color: _isRecording ? _getDurationStatusColor(_seconds) : AppColors.darkText,
+            color:
+                _isRecording
+                    ? _getDurationStatusColor(_seconds)
+                    : AppColors.darkText,
           ),
         ),
-        
+
         // Add duration progress indicator when recording
         if (_isRecording) ...[
           const SizedBox(height: 8),
@@ -386,7 +404,8 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
                 ),
                 // Minimum duration marker
                 Positioned(
-                  left: 240 * (_minDurationSeconds / (_maxDurationSeconds * 1.2)),
+                  left:
+                      240 * (_minDurationSeconds / (_maxDurationSeconds * 1.2)),
                   child: Container(
                     width: 2,
                     height: 8,
@@ -395,7 +414,8 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
                 ),
                 // Maximum duration marker
                 Positioned(
-                  left: 240 * (_maxDurationSeconds / (_maxDurationSeconds * 1.2)),
+                  left:
+                      240 * (_maxDurationSeconds / (_maxDurationSeconds * 1.2)),
                   child: Container(
                     width: 2,
                     height: 8,
@@ -510,9 +530,7 @@ class _SpeechAnalysisScreenState extends State<SpeechAnalysisScreen>
         const SizedBox(height: 16),
         Text(
           _speechType,
-          style: AppTextStyles.body2.copyWith(
-            color: AppColors.lightText,
-          ),
+          style: AppTextStyles.body2.copyWith(color: AppColors.lightText),
         ),
         const SizedBox(height: 8),
         Text(

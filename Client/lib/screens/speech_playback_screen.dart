@@ -74,7 +74,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       _speechTopic = args['topic'] as String? ?? '';
       _speechType = args['speechType'] as String? ?? 'Prepared Speech';
       _expectedDuration = args['duration'] as String? ?? '5–7 minutes';
-      
+
       // Create or update speech model
       _speechModel = SpeechModel(
         topic: _speechTopic,
@@ -122,10 +122,13 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
         ),
       );
 
-    // Add topic to the request
+    // Add speech details to the request
     if (_speechTopic.isNotEmpty) {
       request.fields['topic'] = _speechTopic;
     }
+    request.fields['speech_type'] = _speechType;
+    request.fields['expected_duration'] = _expectedDuration;
+    request.fields['actual_duration'] = _totalDuration;
 
     final response = await request.send();
 
@@ -134,7 +137,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       final jsonResponse = jsonDecode(responseBody);
       setState(() {
         _transcription = jsonResponse['transcription'];
-        
+
         // Update speech model with transcription and analysis
         _speechModel.transcription = _transcription;
         _speechModel.analysis = jsonResponse;
@@ -522,7 +525,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
     _speechModel.speechType = _speechType;
     _speechModel.expectedDuration = _expectedDuration;
-    
+
     // Save to storage
     await SpeechStorageService.saveSpeech(_speechModel);
   }
@@ -531,9 +534,7 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     // Show loading screen first
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const LoadingScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const LoadingScreen()),
     );
 
     // Perform upload and analysis
@@ -553,13 +554,15 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => FeedbackScreen(
-            transcription: _transcription!,
-            audioData: _fileBytes,
-            audioUrl: audioUrl,
-            apiResponse: apiResponse,
-            speechModel: _speechModel, // Pass speech model to feedback screen
-          ),
+          builder:
+              (context) => FeedbackScreen(
+                transcription: _transcription!,
+                audioData: _fileBytes,
+                audioUrl: audioUrl,
+                apiResponse: apiResponse,
+                speechModel:
+                    _speechModel, // Pass speech model to feedback screen
+              ),
         ),
       );
     }

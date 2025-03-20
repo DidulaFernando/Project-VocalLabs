@@ -8,7 +8,10 @@ import 'package:vocallabs_flutter_app/widgets/card_layout.dart'; // Add missing 
 class UploadConfirmationScreen extends StatelessWidget {
   const UploadConfirmationScreen({super.key});
 
-  Future<void> _pickFile(BuildContext context, Map<String, String> speechDetails) async {
+  Future<void> _pickFile(
+    BuildContext context,
+    Map<String, String> speechDetails,
+  ) async {
     const typeGroup = XTypeGroup(
       label: 'audio',
       extensions: ['mp3', 'wav', 'm4a'],
@@ -21,10 +24,7 @@ class UploadConfirmationScreen extends StatelessWidget {
       Navigator.pushReplacementNamed(
         context,
         '/playback',
-        arguments: {
-          'fileBytes': fileBytes,
-          ...speechDetails,
-        },
+        arguments: {'fileBytes': fileBytes, ...speechDetails},
       );
     } else {
       // User canceled the picker
@@ -34,18 +34,21 @@ class UploadConfirmationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Get the speech details from arguments
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final String speechTopic = args?['topic'] as String? ?? '';
-    final String speechType = args?['speechType'] as String? ?? 'Prepared Speech';
-    final String expectedDuration = args?['duration'] as String? ?? '5–7 minutes';
-    
+    final String speechType =
+        args?['speechType'] as String? ?? 'Prepared Speech';
+    final String expectedDuration =
+        args?['duration'] as String? ?? '5–7 minutes';
+
     // Combine all details for passing to _pickFile
     final Map<String, String> speechDetails = {
       'topic': speechTopic,
       'speechType': speechType,
       'duration': expectedDuration,
     };
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Upload Confirmation'),
@@ -67,7 +70,7 @@ class UploadConfirmationScreen extends StatelessWidget {
               style: AppTextStyles.body1,
             ),
             const SizedBox(height: 16),
-            
+
             // Display the speech details
             if (speechTopic.isNotEmpty) ...[
               CardLayout(
@@ -109,7 +112,7 @@ class UploadConfirmationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
             ],
-            
+
             CustomButton(
               text: 'Confirm Upload',
               onPressed: () => _pickFile(context, speechDetails),
@@ -127,7 +130,7 @@ class UploadConfirmationScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildDetailRow({
     required IconData icon,
     required String label,

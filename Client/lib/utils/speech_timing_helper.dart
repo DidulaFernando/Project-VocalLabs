@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 
@@ -7,33 +8,30 @@ class SpeechTimingHelper {
     // Handle formats like "5-7 minutes" or "4–6 minutes"
     final pattern = RegExp(r'(\d+)[\s\-–]+(\d+)');
     final match = pattern.firstMatch(durationText);
-    
+
     int minSeconds = 300; // Default: 5 minutes
     int maxSeconds = 420; // Default: 7 minutes
-    
+
     if (match != null && match.groupCount >= 2) {
       try {
         final minMinutes = int.parse(match.group(1)!);
         final maxMinutes = int.parse(match.group(2)!);
-        
+
         minSeconds = minMinutes * 60;
         maxSeconds = maxMinutes * 60;
       } catch (e) {
         print('Error parsing duration range: $e');
       }
     }
-    
-    return {
-      'minSeconds': minSeconds,
-      'maxSeconds': maxSeconds,
-    };
+
+    return {'minSeconds': minSeconds, 'maxSeconds': maxSeconds};
   }
-  
+
   // Check if duration is within expected range
   static bool isWithinRange(int seconds, int minSeconds, int maxSeconds) {
     return seconds >= minSeconds && seconds <= maxSeconds;
   }
-  
+
   // Get status color based on duration
   static Color getStatusColor(int seconds, int minSeconds, int maxSeconds) {
     if (seconds < minSeconds) {
@@ -44,9 +42,13 @@ class SpeechTimingHelper {
       return AppColors.warning; // Exceeded maximum
     }
   }
-  
+
   // Get feedback message based on duration
-  static String getFeedbackMessage(int seconds, int minSeconds, int maxSeconds) {
+  static String getFeedbackMessage(
+    int seconds,
+    int minSeconds,
+    int maxSeconds,
+  ) {
     if (seconds < minSeconds) {
       final remaining = minSeconds - seconds;
       final mins = remaining ~/ 60;
@@ -61,16 +63,20 @@ class SpeechTimingHelper {
       return 'Exceeded by ${mins}m ${secs}s';
     }
   }
-  
+
   // Format seconds to mm:ss format
   static String formatTime(int seconds) {
     int minutes = seconds ~/ 60;
     int remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
-  
+
   // Get speech score adjustment based on timing compliance
-  static int getTimingScoreAdjustment(int seconds, int minSeconds, int maxSeconds) {
+  static int getTimingScoreAdjustment(
+    int seconds,
+    int minSeconds,
+    int maxSeconds,
+  ) {
     if (seconds < minSeconds) {
       // Too short - penalty based on how short
       final shortBy = minSeconds - seconds;
