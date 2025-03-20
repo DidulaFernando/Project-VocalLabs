@@ -26,7 +26,7 @@ import 'package:vocallabs_flutter_app/screens/account_settings_screen.dart';
 import 'package:vocallabs_flutter_app/screens/payment_gateway_screen.dart';
 import 'package:vocallabs_flutter_app/screens/upload_confirmation_screen.dart';
 import 'package:vocallabs_flutter_app/screens/startup_screen.dart';
-import 'package:vocallabs_flutter_app/screens/advanced_analysis.dart'; // Add this import
+import 'package:vocallabs_flutter_app/screens/advanced_analysis.dart';
 
 void main() {
   runApp(const MyApp());
@@ -87,9 +87,9 @@ class MyApp extends StatelessWidget {
         if (settings.name == '/feedback') {
           final args = settings.arguments as Map<String, dynamic>?;
           return MaterialPageRoute(
-            builder: (context) => FeedbackScreen(
-              transcription: args?['transcription'] ?? '',
-            ),
+            builder:
+                (context) =>
+                    FeedbackScreen(transcription: args?['transcription'] ?? ''),
           );
         }
         return null;
@@ -102,7 +102,8 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/analysis': (context) => const AudioRecordingScreen(),
         '/playback': (context) => const SpeechPlaybackScreen(),
-        '/playback_history': (context) => const SpeechPlaybackScreen(isFromHistory: true),
+        '/playback_history':
+            (context) => const SpeechPlaybackScreen(isFromHistory: true),
         '/profile': (context) => const ProfileScreen(),
         '/history': (context) => const SpeechHistoryScreen(),
         '/progress': (context) => const ProgressDashboardScreen(),
@@ -119,7 +120,7 @@ class MyApp extends StatelessWidget {
         '/payment': (context) => const PaymentGatewayScreen(),
         '/upload_confirmation': (context) => const UploadConfirmationScreen(),
         '/startup': (context) => const StartupScreen(),
-        '/advanced_analysis': (context) => const AdvancedAnalysisScreen(), // Add this route
+        '/advanced_analysis': (context) => const AdvancedAnalysisScreen(),
       },
     );
   }

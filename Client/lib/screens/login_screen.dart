@@ -2,12 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
-<<<<<<< Updated upstream
-import 'package:firebase_auth/firebase_auth.dart'; // Add this import
-=======
 import 'package:http/http.dart' as http;
 import 'dart:convert';
->>>>>>> Stashed changes
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,20 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-
-  Future<void> login() async {
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      Navigator.pushReplacementNamed(context, '/home');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login Failed: $e")),
-      );
-    }
-  }
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -43,20 +26,63 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() async {
-    final response = await http.post(
-      Uri.parse('http://localhost:3000/login'), // Change the URL as needed
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-      }),
-    );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login successful')));
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed')));
+    if (email.isEmpty || password.isEmpty) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    // Prepare data for submission
+    final loginData = {'email': email, 'password': password};
+
+    // Show loading indicator
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Make a request to the backend
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:8000/login/'), // Update the URL
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(loginData),
+      );
+
+      // Hide loading indicator
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final userName = responseData['name'];
+        // Navigate to the next screen or show success message
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {'name': userName},
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+      }
+    } catch (e) {
+      // Hide loading indicator
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Show error message
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -148,14 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                CustomButton(
-                  text: 'Login',
-<<<<<<< Updated upstream
-                  onPressed: login, // Update this line
-=======
-                  onPressed: _login,
->>>>>>> Stashed changes
-                ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  CustomButton(text: 'Login', onPressed: _login),
                 const SizedBox(height: 20),
                 Row(
                   children: [

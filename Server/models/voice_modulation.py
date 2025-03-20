@@ -143,7 +143,7 @@ def calculate_emphasis_score(emphasis_points, duration, pitch_values, intensity_
         avg_emphasis_intensity = np.mean(emphasis_intensities)
         if avg_emphasis_intensity < np.mean(intensity_values) * 1.1:  # Weak emphasis
             score -= 2
-        elif avg_emphasis_intensity > np.mean(intensity_values) * 1.5:  # Over-exaggerated
+        elif avg_emphasis_intensity > np.mean(intensity_values) * 1.5: # Too strong
             score -= 2
     
     return max(0, min(10, score))
