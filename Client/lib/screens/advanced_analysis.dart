@@ -54,8 +54,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     final pronunciation = vocabulary['pronunciation'] ?? {};
     final effectiveness =
         widget.proficiencyScores?['effectiveness_evaluation'] ?? {};
-    final clearPurpose = effectiveness['clear_purpose'] ?? {};
-    final achievementPurpose = effectiveness['achievement_of_purpose'] ?? {};
 
     // Initialize speech development scores - Fix the data extraction
     final speechDevelopment =
@@ -94,12 +92,21 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         (grammarWordSelection['score'] ?? 80.0).toDouble() * 0.2;
     pronunciationScore = (pronunciation['score'] ?? 84.0).toDouble() * 0.2;
 
-    // Initialize effectiveness scores (converting to 20-point scale)
-    effectivenessScore =
-        (effectiveness['effectiveness_score'] ?? 78.0).toDouble() * 0.2;
-    clearPurposeScore = (clearPurpose['score'] ?? 76.0).toDouble() * 0.2;
-    achievementScore = (achievementPurpose['score'] ?? 80.0).toDouble() * 0.2;
-    effectivenessRating = effectiveness['rating'] as String? ?? 'Good';
+    // Initialize effectiveness scores with proper scaling
+    final effectivenessEval = scores['effectiveness_evaluation'] ?? {};
+    effectivenessScore = (effectivenessEval['effectiveness_score'] ?? 0.0).toDouble();
+    clearPurposeScore = (effectivenessEval['clear_purpose']?['score'] ?? 0.0).toDouble();
+    achievementScore = (effectivenessEval['achievement_of_purpose']?['score'] ?? 0.0).toDouble();
+    
+    // Ensure total score is the sum of sub-scores
+    effectivenessScore = clearPurposeScore + achievementScore;
+    effectivenessRating = _getEffectivenessRating(effectivenessScore);
+
+    // Debug logging
+    print('Raw effectiveness data: $effectivenessEval');
+    print('Clear Purpose Score: $clearPurposeScore/10');
+    print('Achievement Score: $achievementScore/10');
+    print('Total Effectiveness Score: $effectivenessScore/20');
 
     // Initialize speech development scores - using actual API values
     // Convert from 0-100 scale to 0-20 scale
@@ -238,14 +245,14 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                           SubMetric(
                             icon: Icons.lightbulb_outline,
                             title: 'Clear Purpose and Relevance',
-                            value: '${clearPurposeScore.toStringAsFixed(1)}/20',
-                            progress: clearPurposeScore / 20,
+                            value: '${clearPurposeScore.toStringAsFixed(1)}/10', // Changed to /10
+                            progress: clearPurposeScore / 10, // Changed to /10
                           ),
                           SubMetric(
                             icon: Icons.flag,
                             title: 'Achievement of Purpose',
-                            value: '${achievementScore.toStringAsFixed(1)}/20',
-                            progress: achievementScore / 20,
+                            value: '${achievementScore.toStringAsFixed(1)}/10', // Changed to /10
+                            progress: achievementScore / 10, // Changed to /10
                           ),
                         ],
                       ),
@@ -532,6 +539,14 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         textColor: AppColors.lightText,
       ),
     );
+  }
+
+  // Add helper method to determine rating
+  String _getEffectivenessRating(double score) {
+    if (score >= 16) return 'Excellent';
+    if (score >= 12) return 'Good';
+    if (score >= 8) return 'Fair';
+    return 'Needs Improvement';
   }
 }
 

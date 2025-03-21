@@ -13,6 +13,7 @@ from passlib.context import CryptContext
 import whisper
 import logging
 from nltk_download import download_nltk_resources  # Import the utility function
+from models.speech_effectiveness import evaluate_speech_effectiveness  # Add this import
 
 app = FastAPI()
 
@@ -186,6 +187,24 @@ async def upload_file(file: UploadFile = File(...),
         expected_duration
     )
     
+    # Add speech effectiveness evaluation with proper error handling
+    try:
+        speech_effectiveness = evaluate_speech_effectiveness(transcription, topic)
+        logging.info("\nSpeech Effectiveness Analysis:")
+        logging.info(f"Total Score: {speech_effectiveness['total_score']}/20")
+        logging.info(f"Relevance Score: {speech_effectiveness['relevance_score']}/10")
+        logging.info(f"Purpose Score: {speech_effectiveness['purpose_score']}/10")
+        logging.info(f"Details: {speech_effectiveness['details']}")
+    except Exception as e:
+        logging.error(f"Error in speech effectiveness evaluation: {str(e)}")
+        speech_effectiveness = {
+            "total_score": 0,
+            "relevance_score": 0,
+            "purpose_score": 0,
+            "details": {},
+            "feedback": ["Error analyzing speech effectiveness"]
+        }
+    
     # Log transcription and evaluation information
     logging.info(f"Transcription: {transcription}")
     logging.info(f"Total pause duration: {pause_duration} seconds")
@@ -224,6 +243,12 @@ async def upload_file(file: UploadFile = File(...),
             logging.info(f"  Body: {breakdown.get('body_percentage', 0)}% ({breakdown.get('body_seconds', 0)} sec)")
             logging.info(f"  Conclusion: {breakdown.get('conclusion_percentage', 0)}% ({breakdown.get('conclusion_seconds', 0)} sec)")
 
+    # Log speech effectiveness scores
+    logging.info("\nSpeech Effectiveness Analysis:")
+    logging.info(f"Total Score: {speech_effectiveness['total_score']}/20")
+    logging.info(f"Relevance Score: {speech_effectiveness['relevance_score']}/10")
+    logging.info(f"Purpose Score: {speech_effectiveness['purpose_score']}/10")
+
     # Generate timing feedback
     timing_feedback = generate_timing_feedback(actual_duration, expected_duration, speech_type)
     
@@ -244,7 +269,20 @@ async def upload_file(file: UploadFile = File(...),
         "pause_duration": pause_duration,
         "pause_analysis": pause_analysis,
         "filler_word_analysis": filler_analysis,
-        "proficiency_scores": proficiency_scores,
+        "proficiency_scores": {
+            **proficiency_scores,
+            "effectiveness_evaluation": {
+                "effectiveness_score": speech_effectiveness['relevance_score'] + speech_effectiveness['purpose_score'],  # Sum of sub-scores
+                "clear_purpose": {
+                    "score": speech_effectiveness['relevance_score'],  # Already out of 10
+                    "feedback": speech_effectiveness.get('feedback', [])
+                },
+                "achievement_of_purpose": {
+                    "score": speech_effectiveness['purpose_score'],  # Already out of 10
+                    "details": speech_effectiveness.get('details', {})
+                }
+            }
+        },
         "modulation_analysis": modulation_analysis,
         "speech_development": speech_development,  # Add this line
         "speech_details": {
@@ -253,6 +291,7 @@ async def upload_file(file: UploadFile = File(...),
             "expected_duration": expected_duration,
             "actual_duration": actual_duration
         },
+        "speech_effectiveness": speech_effectiveness,
         "enhanced_analysis": {
             "timing_compliance": timing_feedback,
             "speech_type_feedback": speech_type_feedback,

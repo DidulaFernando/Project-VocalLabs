@@ -1,262 +1,247 @@
-import re
+from sentence_transformers import SentenceTransformer
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
-from collections import Counter
-import statistics
-import math
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+from typing import List, Dict, Tuple
+import spacy
 
-# Download necessary NLTK data
-def download_nltk_data():
-    try:
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        nltk.download('punkt')
-    
-    try:
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        nltk.download('stopwords')
-    
-    try:
-        nltk.data.find('taggers/averaged_perceptron_tagger')
-    except LookupError:
-        nltk.download('averaged_perceptron_tagger')
-    
-    try:
-        nltk.data.find('corpora/wordnet')
-    except LookupError:
-        nltk.download('wordnet')
+# Initialize models
+sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+nlp = spacy.load('en_core_web_sm')
 
-# Keywords indicating purpose/intent
-PURPOSE_KEYWORDS = {
-    'informative': ['explain', 'inform', 'describe', 'present', 'show', 'demonstrate', 'illustrate', 'clarify'],
-    'persuasive': ['convince', 'persuade', 'argue', 'suggest', 'recommend', 'propose', 'advocate', 'urge'],
-    'motivational': ['inspire', 'motivate', 'encourage', 'challenge', 'stimulate', 'energize', 'empower'],
-    'instructional': ['teach', 'guide', 'instruct', 'direct', 'train', 'educate', 'coach', 'mentor']
-}
-
-# Keywords indicating transitions and structure
-TRANSITION_WORDS = [
-    'first', 'second', 'third', 'finally', 'lastly', 'next', 'then', 'subsequently',
-    'meanwhile', 'previously', 'afterward', 'consequently', 'therefore', 'thus',
-    'in conclusion', 'to summarize', 'in summary', 'in short', 'to illustrate',
-    'for example', 'for instance', 'specifically', 'in particular', 'namely',
-    'in other words', 'that is', 'to put it differently', 'again', 'further',
-    'moreover', 'additionally', 'also', 'besides', 'furthermore', 'likewise',
-    'similarly', 'in the same way', 'conversely', 'instead', 'in contrast',
-    'on the other hand', 'on the contrary', 'however', 'nevertheless', 'still',
-    'yet', 'though', 'although', 'even though', 'despite', 'in spite of',
-    'because', 'since', 'due to', 'as a result', 'consequently', 'hence'
-]
-
-def analyze_purpose_clarity(transcription):
-    """
-    Analyze how clearly the purpose of the speech is communicated.
-    
-    Parameters:
-    transcription (str): The transcribed speech text
-    
-    Returns:
-    dict: Analysis of purpose clarity
-    """
-    download_nltk_data()
-    
-    # Clean text from pause markers
-    cleaned_text = re.sub(r'\[\d+\.\d+ second pause\]', '', transcription)
-    
-    # Tokenize and clean the text
-    words = word_tokenize(cleaned_text.lower())
+def preprocess_text(text: str) -> str:
+    """Clean and preprocess text for analysis."""
+    # Tokenize and lemmatize
+    lemmatizer = WordNetLemmatizer()
     stop_words = set(stopwords.words('english'))
-    filtered_words = [word for word in words if word.isalpha() and word not in stop_words]
     
-    # Score based on presence of purpose-indicating words
-    purpose_scores = {}
-    total_words = len(filtered_words)
+    # Basic cleaning
+    text = text.lower()
     
-    if total_words == 0:
-        return {
-            "purpose_clarity_score": 70.0,
-            "primary_purpose": "unknown",
-            "purpose_strength": 0.0,
-            "purpose_in_introduction": False
-        }
+    # Tokenize and lemmatize
+    words = word_tokenize(text)
+    words = [lemmatizer.lemmatize(word) for word in words 
+             if word.isalnum() and word not in stop_words]
     
-    for purpose, keywords in PURPOSE_KEYWORDS.items():
-        matches = sum(1 for word in filtered_words if word in keywords)
-        purpose_scores[purpose] = matches / total_words if total_words > 0 else 0
+    return ' '.join(words)
+
+def compute_semantic_similarity(speech_text: str, topic: str) -> float:
+    """Compute semantic similarity between speech and topic using SBERT."""
+    # Encode texts
+    speech_embedding = sbert_model.encode(speech_text)
+    topic_embedding = sbert_model.encode(topic)
     
-    # Determine the primary purpose
-    primary_purpose = max(purpose_scores.items(), key=lambda x: x[1])[0] if purpose_scores else 'unclear'
-    purpose_strength = max(purpose_scores.values()) if purpose_scores else 0
+    # Calculate cosine similarity
+    similarity = np.dot(speech_embedding, topic_embedding) / \
+                (np.linalg.norm(speech_embedding) * np.linalg.norm(topic_embedding))
     
-    # Score the overall purpose clarity (0-1)
-    purpose_clarity = min(1.0, purpose_strength * 5)
+    return float(similarity)
+
+def extract_keywords(text: str, n: int = 10) -> List[str]:
+    """Extract top n keywords from text using TF-IDF."""
+    vectorizer = TfidfVectorizer(max_features=n)
+    tfidf_matrix = vectorizer.fit_transform([text])
     
-    # Convert to a 0-100 scale for reporting
-    purpose_clarity_score = 50 + (purpose_clarity * 40)
+    # Get feature names and scores
+    feature_names = vectorizer.get_feature_names_out()
+    scores = tfidf_matrix.toarray()[0]
     
-    # Analyze the introduction (first 20% of the text)
-    sentences = sent_tokenize(cleaned_text)
-    intro_size = max(1, int(len(sentences) * 0.2))
-    intro_text = ' '.join(sentences[:intro_size])
-    intro_words = word_tokenize(intro_text.lower())
-    intro_filtered = [word for word in intro_words if word.isalpha() and word not in stop_words]
+    # Sort keywords by score
+    keyword_scores = list(zip(feature_names, scores))
+    keyword_scores.sort(key=lambda x: x[1], reverse=True)
     
-    # Check if purpose keywords appear in the introduction
-    purpose_in_intro = any(word in intro_filtered for purpose_list in PURPOSE_KEYWORDS.values() for word in purpose_list)
+    return [word for word, _ in keyword_scores[:n]]
+
+def analyze_speech_structure(speech_text: str) -> Dict:
+    """Analyze the structure and coherence of the speech."""
+    sentences = sent_tokenize(speech_text)
+    num_sentences = len(sentences)
     
-    # Boost score if purpose is stated early
-    if purpose_in_intro:
-        purpose_clarity_score = min(100, purpose_clarity_score + 10)
+    # More lenient section detection for shorter speeches
+    if num_sentences < 3:
+        intro_end = 1
+        body_end = max(1, num_sentences - 1)
+    else:
+        intro_end = max(1, int(num_sentences * 0.2))
+        body_end = int(num_sentences * 0.8)
+    
+    intro = ' '.join(sentences[:intro_end])
+    body = ' '.join(sentences[intro_end:body_end])
+    conclusion = ' '.join(sentences[body_end:])
+    
+    # Analyze coherence using spaCy
+    doc = nlp(speech_text)
+    
+    # Calculate topic consistency based on main subjects and verbs
+    main_subjects = []
+    main_verbs = []
+    for token in doc:
+        if token.dep_ == 'nsubj':
+            main_subjects.append(token.text.lower())
+        elif token.pos_ == 'VERB':
+            main_verbs.append(token.text.lower())
+    
+    # Calculate topic consistency
+    topic_consistency = 0
+    if main_subjects and main_verbs:
+        unique_subjects = set(main_subjects)
+        unique_verbs = set(main_verbs)
+        subject_consistency = len([s for s in main_subjects if s in unique_subjects]) / len(main_subjects)
+        verb_variety = len(unique_verbs) / len(main_verbs)
+        topic_consistency = (subject_consistency + verb_variety) / 2
     
     return {
-        "purpose_clarity_score": round(purpose_clarity_score, 1),
-        "primary_purpose": primary_purpose,
-        "purpose_strength": round(purpose_strength * 100, 1),
-        "purpose_in_introduction": purpose_in_intro
+        'has_intro': bool(intro and len(intro.split()) >= 3),
+        'has_body': bool(body and len(body.split()) >= 5),
+        'has_conclusion': bool(conclusion and len(conclusion.split()) >= 3),
+        'has_discourse_markers': _check_discourse_markers(speech_text),
+        'topic_consistency': topic_consistency,
+        'num_sentences': num_sentences,
+        'sections': {
+            'intro': intro,
+            'body': body,
+            'conclusion': conclusion
+        }
     }
 
-def analyze_purpose_achievement(transcription):
+def _check_discourse_markers(text: str) -> float:
+    """Check for discourse markers and return a score based on their usage."""
+    discourse_markers = {
+        'introduction': ['first', 'to begin', 'introduction', 'topic', 'discuss'],
+        'transition': ['however', 'moreover', 'furthermore', 'additionally', 'therefore', 'consequently'],
+        'conclusion': ['finally', 'in conclusion', 'to summarize', 'thus', 'in summary']
+    }
+    
+    text_lower = text.lower()
+    total_markers = 0
+    for category, markers in discourse_markers.items():
+        for marker in markers:
+            if marker in text_lower:
+                total_markers += 1
+    
+    # Return a normalized score (0-1)
+    return min(1.0, total_markers / 5)  # Expecting at least 5 markers for full score
+
+def evaluate_speech_effectiveness(speech_text: str, topic: str) -> Dict:
     """
-    Analyze how well the speech achieves its purpose.
-    
-    Parameters:
-    transcription (str): The transcribed speech text
-    
-    Returns:
-    dict: Analysis of purpose achievement
+    Main function to evaluate speech effectiveness based on topic relevance
+    and achievement of purpose.
     """
-    download_nltk_data()
-    
-    # Clean text from pause markers
-    cleaned_text = re.sub(r'\[\d+\.\d+ second pause\]', '', transcription)
-    
-    # Tokenize into sentences
-    sentences = sent_tokenize(cleaned_text)
-    
-    if not sentences:
+    # Input validation and logging
+    if not speech_text or not topic:
+        print("Warning: Empty speech text or topic")
         return {
-            "achievement_score": 70.0,
-            "structure_quality": 65.0,
-            "content_relevance": 75.0,
-            "conclusion_strength": 70.0
+            "total_score": 0,
+            "relevance_score": 0,
+            "purpose_score": 0,
+            "details": {},
+            "feedback": ["Invalid input: Speech or topic is empty"]
         }
     
-    # Analyze speech structure
-    transition_count = 0
-    for sentence in sentences:
-        words = word_tokenize(sentence.lower())
-        sentence_text = sentence.lower()
-        
-        # Count individual transition words
-        for word in words:
-            if word in TRANSITION_WORDS:
-                transition_count += 1
-        
-        # Count phrases (may span multiple tokens)
-        for phrase in [tw for tw in TRANSITION_WORDS if ' ' in tw]:
-            if phrase in sentence_text:
-                transition_count += 1
-    
-    # Structure quality score based on transitions and sentence count
-    transition_density = transition_count / len(sentences)
-    structure_quality = 60 + min(30, transition_density * 60)
-    
-    # Analyze content relevance by looking for key topic consistency
-    # Without advanced NLP, we'll use a simple heuristic:
-    # 1. Find most frequent content words
-    # 2. Check consistency throughout the speech
-    words = word_tokenize(cleaned_text.lower())
-    stop_words = set(stopwords.words('english'))
-    content_words = [word for word in words if word.isalpha() and word not in stop_words and len(word) > 3]
-    
-    if content_words:
-        word_counter = Counter(content_words)
-        top_words = [word for word, _ in word_counter.most_common(5)]
-        
-        # Split speech into beginning, middle, and end
-        third_size = max(1, len(sentences) // 3)
-        beginning = ' '.join(sentences[:third_size])
-        middle = ' '.join(sentences[third_size:2*third_size])
-        end = ' '.join(sentences[2*third_size:])
-        
-        # Check if top words appear in all parts
-        sections = [beginning, middle, end]
-        topic_consistency = 0
-        for word in top_words:
-            sections_with_word = sum(1 for section in sections if word in section.lower())
-            topic_consistency += sections_with_word / len(sections)
-        
-        # Average consistency across top words
-        avg_consistency = topic_consistency / len(top_words) if top_words else 0
-        content_relevance = 60 + min(35, avg_consistency * 40)
-    else:
-        content_relevance = 70  # Default if no content words found
-    
-    # Check for conclusion strength
-    conclusion_section = ' '.join(sentences[-max(1, int(len(sentences) * 0.2)):])
-    conclusion_markers = ['conclude', 'conclusion', 'summary', 'summarize', 'finally', 'lastly', 
-                          'in closing', 'to sum up', 'in summary', 'therefore', 'thus', 'overall']
-    
-    has_conclusion = any(marker in conclusion_section.lower() for marker in conclusion_markers)
-    conclusion_strength = 80 if has_conclusion else 60
-    
-    # Calculate overall achievement score
-    achievement_score = (structure_quality * 0.4) + (content_relevance * 0.4) + (conclusion_strength * 0.2)
-    
-    return {
-        "achievement_score": round(achievement_score, 1),
-        "structure_quality": round(structure_quality, 1),
-        "content_relevance": round(content_relevance, 1),
-        "conclusion_strength": round(conclusion_strength, 1)
-    }
+    print(f"\nAnalyzing speech effectiveness:")
+    print(f"Topic: {topic}")
+    print(f"Speech length: {len(speech_text)} characters")
 
-def evaluate_speech_effectiveness(transcription):
-    """
-    Evaluate the overall effectiveness of the speech.
+    # Preprocess texts
+    processed_speech = preprocess_text(speech_text)
+    processed_topic = preprocess_text(topic)
     
-    Parameters:
-    transcription (str): Transcribed text
+    # 1. Clear Purpose & Relevance (10 points)
+    semantic_similarity = compute_semantic_similarity(processed_speech, processed_topic)
+    print(f"Semantic similarity score: {semantic_similarity}")
     
-    Returns:
-    dict: Complete speech effectiveness evaluation
-    """
-    # Ensure NLTK data is available
-    download_nltk_data()
+    speech_keywords = set(extract_keywords(processed_speech))
+    topic_keywords = set(extract_keywords(processed_topic))
+    keyword_overlap = len(speech_keywords.intersection(topic_keywords)) / max(len(topic_keywords), 1)
+    print(f"Keyword overlap score: {keyword_overlap}")
     
-    # Run analyses
-    purpose_analysis = analyze_purpose_clarity(transcription)
-    achievement_analysis = analyze_purpose_achievement(transcription)
+    # Calculate relevance score with adjusted weights
+    relevance_score = (semantic_similarity * 6) + (keyword_overlap * 4)
+    relevance_score = max(0, min(10, relevance_score * 10))  # Scale to 0-10
     
-    # Calculate category scores
-    clear_purpose_score = purpose_analysis["purpose_clarity_score"]
-    achievement_score = achievement_analysis["achievement_score"]
+    # 2. Achievement of Purpose (10 points)
+    structure_analysis = analyze_speech_structure(speech_text)
     
-    # Calculate overall effectiveness score
-    effectiveness_score = (clear_purpose_score * 0.5) + (achievement_score * 0.5)
+    # Calculate purpose score based on structure and topic relevance
+    purpose_components = {
+        'structure': 0,
+        'coherence': 0,
+        'topic_alignment': 0
+    }
     
-    # Determine qualitative rating
-    if effectiveness_score >= 85:
-        rating = "Excellent"
-    elif effectiveness_score >= 75:
-        rating = "Very Good"
-    elif effectiveness_score >= 65:
-        rating = "Good"
-    elif effectiveness_score >= 55:
-        rating = "Fair"
-    else:
-        rating = "Needs Improvement"
+    # Structure score (4 points)
+    if structure_analysis['has_intro']:
+        purpose_components['structure'] += 1
+    if structure_analysis['has_body']:
+        purpose_components['structure'] += 2
+    if structure_analysis['has_conclusion']:
+        purpose_components['structure'] += 1
+    
+    # Coherence score (3 points)
+    discourse_marker_score = _check_discourse_markers(speech_text)
+    purpose_components['coherence'] = discourse_marker_score * 3
+    
+    # Topic alignment score (3 points)
+    # This ensures achievement of purpose is tied to topic relevance
+    topic_alignment = (semantic_similarity * 0.7 + keyword_overlap * 0.3) * 3
+    purpose_components['topic_alignment'] = topic_alignment
+    
+    # Calculate final purpose score
+    purpose_score = sum(purpose_components.values())
+    purpose_score = max(0, min(10, purpose_score))  # Ensure it's between 0-10
+    
+    print(f"\nPurpose Score Components:")
+    for component, score in purpose_components.items():
+        print(f"{component}: {score:.2f}")
+    
+    print(f"\nFinal scores:")
+    print(f"Relevance score: {relevance_score}/10")
+    print(f"Purpose score: {purpose_score}/10")
     
     return {
-        "effectiveness_score": round(effectiveness_score, 1),
-        "rating": rating,
-        "clear_purpose": {
-            "score": round(clear_purpose_score, 1),
-            "details": purpose_analysis
+        'total_score': round(relevance_score + purpose_score, 2),
+        'relevance_score': round(relevance_score, 2),
+        'purpose_score': round(purpose_score, 2),
+        'details': {
+            'semantic_similarity': round(semantic_similarity, 3),
+            'keyword_overlap': round(keyword_overlap, 3),
+            'speech_keywords': list(speech_keywords),
+            'topic_keywords': list(topic_keywords),
+            'structure_analysis': structure_analysis,
+            'purpose_components': {k: round(v, 2) for k, v in purpose_components.items()}
         },
-        "achievement_of_purpose": {
-            "score": round(achievement_score, 1),
-            "details": achievement_analysis
-        }
+        'feedback': generate_feedback(relevance_score, purpose_score, structure_analysis)
     }
+
+def generate_feedback(relevance_score: float, purpose_score: float, structure: Dict) -> List[str]:
+    """Generate specific feedback based on the analysis results."""
+    feedback = []
+    
+    # Relevance feedback
+    if relevance_score < 5:
+        feedback.append("The speech appears to deviate significantly from the main topic. Try to stay more focused on the subject matter.")
+    elif relevance_score < 7:
+        feedback.append("The speech somewhat relates to the topic but could be more focused. Consider tightening the connection to the main theme.")
+    else:
+        feedback.append("Good job maintaining relevance to the topic throughout the speech.")
+    
+    # Structure feedback
+    if not structure['has_intro']:
+        feedback.append("The speech lacks a clear introduction. Consider adding an opening that sets up your main points.")
+    if not structure['has_conclusion']:
+        feedback.append("The speech needs a stronger conclusion to reinforce your message.")
+    if not structure['has_discourse_markers']:
+        feedback.append("Try using transition phrases to improve flow between ideas.")
+    
+    # Purpose achievement feedback
+    if purpose_score < 5:
+        feedback.append("The speech structure needs significant improvement. Focus on organizing your thoughts more clearly.")
+    elif purpose_score < 7:
+        feedback.append("The speech structure is decent but could be more organized. Consider using a clearer beginning-middle-end format.")
+    else:
+        feedback.append("Well-structured speech with good organization of ideas.")
+    
+    return feedback
