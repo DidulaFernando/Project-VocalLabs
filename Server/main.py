@@ -6,13 +6,21 @@ from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
 from models.voice_modulation import analyze_voice_modulation
+from models.speech_development import evaluate_speech_development  # Add this line
 from models.user import User, SessionLocal, engine
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 import whisper
 import logging
+from nltk_download import download_nltk_resources  # Import the utility function
 
 app = FastAPI()
+
+# Download NLTK resources at server startup
+try:
+    download_nltk_resources()
+except Exception as e:
+    logging.error(f"Error downloading NLTK resources: {str(e)}")
 
 # Enable CORS
 app.add_middleware(
@@ -151,6 +159,14 @@ async def upload_file(file: UploadFile = File(...),
     filler_analysis = analyze_filler_words(result)
     pause_analysis = analyze_mid_sentence_pauses(transcription)
     
+    # Convert actual_duration string (MM:SS) to seconds
+    actual_duration_seconds = 0
+    try:
+        parts = actual_duration.split(':')
+        actual_duration_seconds = int(parts[0]) * 60 + int(parts[1])
+    except (ValueError, IndexError, AttributeError):
+        logging.warning("Could not parse actual_duration, using 0 seconds")
+    
     # Pass speech details to proficiency evaluation
     proficiency_scores = calculate_proficiency_score(
         filler_analysis, 
@@ -161,6 +177,14 @@ async def upload_file(file: UploadFile = File(...),
     
     # Analyze voice modulation
     modulation_analysis = analyze_voice_modulation(file_location)
+    
+    # New: Analyze speech development
+    speech_development = evaluate_speech_development(
+        transcription,
+        topic,
+        actual_duration_seconds,
+        expected_duration
+    )
     
     # Log transcription and evaluation information
     logging.info(f"Transcription: {transcription}")
@@ -185,6 +209,21 @@ async def upload_file(file: UploadFile = File(...),
     logging.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
     logging.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
 
+    # Log speech development scores
+    logging.info("\nSpeech Development Analysis:")
+    logging.info(f"Overall Development Score: {speech_development['development_score']}/100")
+    logging.info(f"Structure Score: {speech_development['structure']['score']}/100")
+    logging.info(f"Time Utilization Score: {speech_development['time_utilization']['score']}/100")
+    if 'time_distribution' in speech_development['time_utilization']['details']:
+        time_dist = speech_development['time_utilization']['details']['time_distribution']
+        logging.info(f"Time Distribution Quality: {time_dist['quality']}")
+        if 'breakdown' in time_dist and time_dist['breakdown']:
+            logging.info("Time Distribution Breakdown:")
+            breakdown = time_dist['breakdown']
+            logging.info(f"  Introduction: {breakdown.get('introduction_percentage', 0)}% ({breakdown.get('introduction_seconds', 0)} sec)")
+            logging.info(f"  Body: {breakdown.get('body_percentage', 0)}% ({breakdown.get('body_seconds', 0)} sec)")
+            logging.info(f"  Conclusion: {breakdown.get('conclusion_percentage', 0)}% ({breakdown.get('conclusion_seconds', 0)} sec)")
+
     # Generate timing feedback
     timing_feedback = generate_timing_feedback(actual_duration, expected_duration, speech_type)
     
@@ -207,6 +246,7 @@ async def upload_file(file: UploadFile = File(...),
         "filler_word_analysis": filler_analysis,
         "proficiency_scores": proficiency_scores,
         "modulation_analysis": modulation_analysis,
+        "speech_development": speech_development,  # Add this line
         "speech_details": {
             "topic": topic,
             "speech_type": speech_type,
@@ -224,7 +264,7 @@ async def upload_file(file: UploadFile = File(...),
                 f"Practice keeping your {speech_type.lower()} within the {expected_duration} timeframe.",
                 "Focus on reducing filler words to sound more confident.",
                 "Use pauses strategically rather than mid-sentence."
-            ]
+            ] + speech_development.get("structure", {}).get("feedback", [])  # Add structure feedback
         }
     }
 

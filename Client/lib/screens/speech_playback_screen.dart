@@ -5,18 +5,23 @@ import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:audioplayers/audioplayers.dart';
-// Ensure file_selector is imported
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // Import dart:convert for JSON decoding
-import 'feedback_screen.dart'; // Import FeedbackScreen
+import 'package:vocallabs_flutter_app/screens/feedback_screen.dart'; // Import FeedbackScreen
 import 'package:vocallabs_flutter_app/screens/loading_screen.dart';
 import 'package:vocallabs_flutter_app/models/speech_model.dart';
 import 'package:vocallabs_flutter_app/services/speech_storage_service.dart';
+import 'package:vocallabs_flutter_app/services/audio_analysis_service.dart'; // Import the service
 
 class SpeechPlaybackScreen extends StatefulWidget {
   final bool isFromHistory;
+  final String? audioUrl; // Add audioUrl as a parameter
 
-  const SpeechPlaybackScreen({super.key, this.isFromHistory = false});
+  const SpeechPlaybackScreen({
+    super.key,
+    this.isFromHistory = false,
+    this.audioUrl,
+  });
 
   @override
   State<SpeechPlaybackScreen> createState() => _SpeechPlaybackScreenState();
@@ -30,461 +35,221 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   late AudioPlayer _audioPlayer;
   Uint8List? _fileBytes;
   String? _fileUrl;
-  String? _transcription; // Add a variable to store the transcription
-  String _speechTopic = ''; // Add variable for speech topic
+  String? _transcription;
+  String _speechTopic = '';
   String _speechType = 'Prepared Speech';
   String _expectedDuration = '5–7 minutes';
   late SpeechModel _speechModel;
+  bool _isProcessing = false;
+  bool _audioInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _initializeAudioPlayer();
-    _audioPlayer.onPositionChanged.listen((Duration position) {
-      setState(() {
-        _currentPosition = _formatTime(position.inSeconds);
-        _sliderValue =
-            position.inSeconds /
-            (_parseTimeToSeconds(_totalDuration) == 0
-                ? 1
-                : _parseTimeToSeconds(_totalDuration));
-      });
-    });
-    _audioPlayer.onDurationChanged.listen((Duration duration) {
-      setState(() {
-        _totalDuration = _formatTime(duration.inSeconds);
-      });
-    });
+
+    // Initialize with default speech model
     _speechModel = SpeechModel(
       topic: _speechTopic,
       speechType: _speechType,
       expectedDuration: _expectedDuration,
+      recordedAt: DateTime.now(),
     );
+
+    _setupAudioListeners();
+  }
+
+  void _setupAudioListeners() {
+    // Set up audio position listener with error handling
+    _audioPlayer.onPositionChanged.listen((Duration position) {
+      if (mounted) {
+        setState(() {
+          _currentPosition = _formatTime(position.inSeconds);
+          final totalDurationSeconds = _parseTimeToSeconds(_totalDuration);
+          // Avoid division by zero or NaN issues
+          if (totalDurationSeconds > 0) {
+            _sliderValue = position.inSeconds / totalDurationSeconds;
+            // Ensure value is within 0-1 bounds
+            _sliderValue = _sliderValue.clamp(0.0, 1.0);
+          } else {
+            _sliderValue = 0.0;
+          }
+        });
+      }
+    }, onError: (e) => print('Error in position listener: $e'));
+
+    // Set up audio duration listener
+    _audioPlayer.onDurationChanged.listen((Duration duration) {
+      if (mounted) {
+        setState(() {
+          _totalDuration = _formatTime(duration.inSeconds);
+        });
+      }
+    }, onError: (e) => print('Error in duration listener: $e'));
+
+    // Handle player completion
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _sliderValue = 0.0;
+          _currentPosition = '00:00';
+        });
+      }
+    }, onError: (e) => print('Error in completion listener: $e'));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Get URL from widget if available
+    _fileUrl = widget.audioUrl;
+
     // Check if arguments is a Map (new format) or Uint8List (old format)
     final args = ModalRoute.of(context)?.settings.arguments;
 
     if (args is Map<String, dynamic>) {
+      // Extract data from arguments Map
       _fileBytes = args['fileBytes'] as Uint8List?;
       _speechTopic = args['topic'] as String? ?? '';
       _speechType = args['speechType'] as String? ?? 'Prepared Speech';
       _expectedDuration = args['duration'] as String? ?? '5–7 minutes';
 
-      // Create or update speech model
+      // Update the speech model with new data
       _speechModel = SpeechModel(
         topic: _speechTopic,
         audioData: _fileBytes,
         speechType: _speechType,
         expectedDuration: _expectedDuration,
+        recordedAt: DateTime.now(),
       );
     } else if (args is Uint8List) {
+      // Legacy support for when only audio data is passed
       _fileBytes = args;
     }
 
-    if (_fileBytes != null) {
+    // Initialize audio after arguments are processed
+    if (!_audioInitialized) {
       _initializeAudioPlayer();
     }
   }
 
   Future<void> _initializeAudioPlayer() async {
     try {
-      if (_fileBytes != null) {
+      if (_fileBytes != null && _fileBytes!.isNotEmpty) {
         // Use the audio data directly without creating a URL
         await _audioPlayer.setSourceBytes(_fileBytes!);
-        print('Audio initialized in playback screen');
+        _audioInitialized = true;
+        print('Audio initialized from data');
+      } else if (_fileUrl != null && _fileUrl!.isNotEmpty) {
+        await _audioPlayer.setSource(UrlSource(_fileUrl!));
+        _audioInitialized = true;
+        print('Audio initialized from URL');
+      } else if (widget.audioUrl != null && widget.audioUrl!.isNotEmpty) {
+        await _audioPlayer.setSource(UrlSource(widget.audioUrl!));
+        _audioInitialized = true;
+        print('Audio initialized from widget URL');
+      } else {
+        print('No audio source available');
       }
     } catch (e) {
-      print('Error initializing audio in playback screen: $e');
+      print('Error initializing audio: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not load audio: $e')));
+      }
     }
   }
 
   @override
   void dispose() {
+    _audioPlayer.stop();
     _audioPlayer.dispose();
     super.dispose();
   }
 
-  Future<dynamic> _uploadFile() async {
-    if (_fileBytes == null) return;
+  Future<Map<String, dynamic>?> _uploadFile() async {
+    if (_fileBytes == null) return null;
 
-    final uri = Uri.parse('http://10.0.2.2:8000/upload/'); // Update the URL
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          _fileBytes!,
-          filename: 'uploaded_audio.wav',
-        ),
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      // Use the service to analyze the audio
+      final response = await AudioAnalysisService.analyzeAudio(
+        audioData: _fileBytes!,
+        fileName: 'speech_recording.wav',
+        topic: _speechTopic,
+        speechType: _speechType,
+        expectedDuration: _expectedDuration,
+        actualDuration: _totalDuration,
       );
 
-    // Add speech details to the request
-    if (_speechTopic.isNotEmpty) {
-      request.fields['topic'] = _speechTopic;
-    }
-    request.fields['speech_type'] = _speechType;
-    request.fields['expected_duration'] = _expectedDuration;
-    request.fields['actual_duration'] = _totalDuration;
-
-    final response = await request.send();
-
-    if (response.statusCode == 200) {
-      final responseBody = await response.stream.bytesToString();
-      final jsonResponse = jsonDecode(responseBody);
       setState(() {
-        _transcription = jsonResponse['transcription'];
+        _transcription = response['transcription'] as String?;
 
         // Update speech model with transcription and analysis
         _speechModel.transcription = _transcription;
-        _speechModel.analysis = jsonResponse;
-        _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
-        _speechModel.score = 82; // Default or calculate from response
+        _speechModel.analysis = response;
+
+        // Extract duration and score
+        if (_totalDuration.isNotEmpty) {
+          _speechModel.duration =
+              _parseTimeToSeconds(_totalDuration).toDouble();
+        }
+
+        // Try to extract score or use default
+        try {
+          final proficiencyScores = response['proficiency_scores'];
+          if (proficiencyScores != null) {
+            _speechModel.score =
+                (proficiencyScores['final_score'] as num).toInt() *
+                5; // Scale to 0-100
+          } else {
+            _speechModel.score = 82; // Default score
+          }
+        } catch (e) {
+          print('Error extracting score: $e');
+          _speechModel.score = 82; // Default score if extraction fails
+        }
       });
-      return jsonResponse; // Return the full response
-    } else {
-      print('File upload failed');
+
+      return response;
+    } catch (e) {
+      print('Error uploading file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error analyzing speech: $e')));
+      }
       return null;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Remove the fileBytes initialization from here since it's now in didChangeDependencies
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.isFromHistory ? 'Speech Playback' : 'Review Recording',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          // Use ListView instead of Column for scrollable content
-          child: ListView(
-            children: [
-              const SizedBox(height: 20),
-              CardLayout(
-                child: Column(
-                  children: [
-                    Text(
-                      _speechTopic.isNotEmpty
-                          ? _speechTopic
-                          : 'Speech Recording',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _speechType,
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppColors.primaryBlue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Recorded Today at ${TimeOfDay.now().format(context)}',
-                      style: AppTextStyles.body2,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.timer,
-                          size: 16,
-                          color: AppColors.lightText,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Duration: $_totalDuration (Expected: $_expectedDuration)',
-                          style: AppTextStyles.body2,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        const Text('Score: 82', style: AppTextStyles.body2),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              // Waveform visualization
-              CardLayout(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    const Text('Audio Waveform', style: AppTextStyles.body2),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 100,
-                      child: CustomPaint(
-                        painter: WaveformPainter(
-                          progress: _sliderValue,
-                          activeColor: AppColors.primaryBlue,
-                          inactiveColor: Colors.grey.shade300,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Playback controls
-              CardLayout(
-                child: Column(
-                  children: [
-                    Slider(
-                      value: _sliderValue.isNaN ? 0 : _sliderValue,
-                      activeColor: AppColors.primaryBlue,
-                      inactiveColor: Colors.grey.shade300,
-                      onChanged: (value) {
-                        setState(() {
-                          _sliderValue = value;
-                          // Calculate current position based on slider value
-                          int totalSeconds = _parseTimeToSeconds(
-                            _totalDuration,
-                          );
-                          int currentSeconds = (totalSeconds * value).round();
-                          _currentPosition = _formatTime(currentSeconds);
-                          _audioPlayer.seek(Duration(seconds: currentSeconds));
-                        });
-                      },
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(_currentPosition),
-                          Text(_totalDuration),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.replay_10, size: 36),
-                          onPressed: () {
-                            // Rewind 10 seconds
-                            double newValue =
-                                _sliderValue -
-                                (10 / _parseTimeToSeconds(_totalDuration));
-                            setState(() {
-                              _sliderValue = newValue < 0 ? 0 : newValue;
-                              int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) *
-                                          _sliderValue)
-                                      .round();
-                              _currentPosition = _formatTime(currentSeconds);
-                              _audioPlayer.seek(
-                                Duration(seconds: currentSeconds),
-                              );
-                            });
-                          },
-                          color: AppColors.primaryBlue,
-                        ),
-                        const SizedBox(width: 20),
-                        ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              setState(() {
-                                _isPlaying = !_isPlaying;
-                              });
-                              if (_isPlaying) {
-                                await _audioPlayer.resume();
-                              } else {
-                                await _audioPlayer.pause();
-                              }
-                            } catch (e) {
-                              print('Error playing audio: $e');
-                              setState(() {
-                                _isPlaying = false;
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryBlue,
-                            shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(16),
-                          ),
-                          child: Icon(
-                            _isPlaying ? Icons.pause : Icons.play_arrow,
-                            size: 40,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        IconButton(
-                          icon: const Icon(Icons.forward_10, size: 36),
-                          onPressed: () {
-                            // Forward 10 seconds
-                            double newValue =
-                                _sliderValue +
-                                (10 / _parseTimeToSeconds(_totalDuration));
-                            setState(() {
-                              _sliderValue = newValue > 1 ? 1 : newValue;
-                              int currentSeconds =
-                                  (_parseTimeToSeconds(_totalDuration) *
-                                          _sliderValue)
-                                      .round();
-                              _currentPosition = _formatTime(currentSeconds);
-                              _audioPlayer.seek(
-                                Duration(seconds: currentSeconds),
-                              );
-                            });
-                          },
-                          color: AppColors.primaryBlue,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-
-              // Fixed spacing instead of Spacer()
-              const SizedBox(height: 40),
-
-              // Buttons section with conditional rendering
-              widget.isFromHistory
-                  ? Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'View Analysis',
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => FeedbackScreen(
-                                      transcription: _transcription ?? '',
-                                      audioData: _fileBytes,
-                                      audioUrl: _fileUrl,
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Share',
-                          isOutlined: true,
-                          onPressed: () {
-                            // Implement share functionality
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Sharing speech recording...'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  )
-                  : Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Save and Analyze',
-                          onPressed: _handleSaveAndAnalyze,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Discard',
-                          isOutlined: true,
-                          backgroundColor: Colors.red,
-                          onPressed: () {
-                            _showDiscardDialog();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
-              // Transcript preview with sufficient bottom padding
-              if (_transcription != null) ...[
-                const SizedBox(height: 20),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Transcript Preview',
-                    style: AppTextStyles.heading2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CardLayout(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _transcription!,
-                        style: AppTextStyles.body2.copyWith(height: 1.5),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            // View full transcript
-                          },
-                          child: const Text('View Full Transcript →'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Extra bottom padding to prevent overflow
-                const SizedBox(height: 20),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  int _parseTimeToSeconds(String time) {
-    List<String> parts = time.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
   String _formatTime(int seconds) {
     int minutes = seconds ~/ 60;
     int remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  int _parseTimeToSeconds(String time) {
+    try {
+      List<String> parts = time.split(':');
+      if (parts.length != 2) return 0;
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    } catch (e) {
+      print('Error parsing time: $e');
+      return 0;
+    }
   }
 
   void _showDiscardDialog() {
@@ -519,19 +284,31 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
   }
 
   Future<void> _saveSpeechToHistory(Map<String, dynamic>? apiResponse) async {
-    // Update speech model with final data
-    _speechModel.analysis = apiResponse;
-    _speechModel.transcription = _transcription;
-    _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
-    _speechModel.speechType = _speechType;
-    _speechModel.expectedDuration = _expectedDuration;
+    try {
+      // Update speech model with final data
+      _speechModel.analysis = apiResponse;
+      _speechModel.transcription = _transcription;
 
-    // Save to storage
-    await SpeechStorageService.saveSpeech(_speechModel);
+      if (_totalDuration.isNotEmpty) {
+        _speechModel.duration = _parseTimeToSeconds(_totalDuration).toDouble();
+      }
+
+      _speechModel.speechType = _speechType;
+      _speechModel.expectedDuration = _expectedDuration;
+      _speechModel.audioData = _fileBytes;
+
+      // Save to storage
+      await SpeechStorageService.saveSpeech(_speechModel);
+      print('Speech saved to history');
+    } catch (e) {
+      print('Error saving speech to history: $e');
+    }
   }
 
   void _handleSaveAndAnalyze() async {
     // Show loading screen first
+    if (!mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const LoadingScreen()),
@@ -540,32 +317,244 @@ class _SpeechPlaybackScreenState extends State<SpeechPlaybackScreen> {
     // Perform upload and analysis
     final apiResponse = await _uploadFile();
 
-    if (_transcription != null && mounted && apiResponse != null) {
+    if (!mounted) return;
+
+    if (apiResponse != null) {
       // Save speech data to history
       await _saveSpeechToHistory(apiResponse);
 
-      // Create a new URL for the feedback screen
-      String? audioUrl;
-      if (_fileBytes != null) {
-        audioUrl = 'data:audio/wav;base64,${base64Encode(_fileBytes!)}';
-      }
-
-      // Replace loading screen with feedback screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => FeedbackScreen(
-                transcription: _transcription!,
-                audioData: _fileBytes,
-                audioUrl: audioUrl,
-                apiResponse: apiResponse,
-                speechModel:
-                    _speechModel, // Pass speech model to feedback screen
-              ),
+      // Navigate to feedback screen with appropriate data
+      _navigateToFeedback(apiResponse);
+    } else {
+      // Handle error - go back to playback screen
+      Navigator.pop(context); // Pop loading screen
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to analyze speech. Please try again.'),
         ),
       );
     }
+  }
+
+  void _navigateToFeedback(Map<String, dynamic>? apiResponse) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => FeedbackScreen(
+              transcription: _transcription ?? '',
+              audioData: widget.isFromHistory ? null : _fileBytes,
+              audioUrl:
+                  widget.isFromHistory ? (_fileUrl ?? widget.audioUrl) : null,
+              apiResponse: apiResponse,
+              speechModel: _speechModel,
+            ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.isFromHistory ? 'Speech Playback' : 'Review Recording',
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: ListView(
+            children: [
+              const SizedBox(height: 20),
+              // Speech info card
+              CardLayout(
+                child: Column(
+                  children: [
+                    Text(
+                      _speechTopic.isNotEmpty
+                          ? _speechTopic
+                          : 'Speech Recording',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _speechType,
+                      style: AppTextStyles.body2.copyWith(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    if (_totalDuration !=
+                        '00:00') // Only show duration if available
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.timer,
+                            size: 16,
+                            color: AppColors.lightText,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Duration: $_totalDuration (Expected: $_expectedDuration)',
+                            style: AppTextStyles.body2,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // ... existing code ...
+
+              // Fixed spacing instead of Spacer()
+              const SizedBox(height: 40),
+
+              // Buttons section with conditional rendering
+              widget.isFromHistory
+                  ? Row(
+                    children: [
+                      Expanded(
+                        child: CustomButton(
+                          text: 'View Analysis',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => FeedbackScreen(
+                                      transcription: _transcription ?? '',
+                                      audioData: _fileBytes,
+                                      audioUrl: _fileUrl ?? widget.audioUrl,
+                                      speechModel: _speechModel,
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Share',
+                          isOutlined: true,
+                          onPressed: () {
+                            // Implement share functionality
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sharing speech recording...'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  )
+                  : Row(
+                    children: [
+                      Expanded(
+                        child: CustomButton(
+                          text:
+                              _isProcessing
+                                  ? 'Processing...'
+                                  : 'Save and Analyze',
+                          // Ensure onPressed is properly handled
+                          onPressed:
+                              _isProcessing ? () {} : _handleSaveAndAnalyze,
+                          // Disable the button visually when processing
+                          isDisabled: _isProcessing,
+                          // Add icon if supported by CustomButton
+                          icon: Icons.save,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Discard',
+                          isOutlined: true,
+                          // Ensure onPressed is properly handled
+                          onPressed: _isProcessing ? () {} : _showDiscardDialog,
+                          // Disable the button visually when processing
+                          isDisabled: _isProcessing,
+                          backgroundColor: Colors.red,
+                          textColor: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+
+              // Transcript preview with sufficient bottom padding
+              if (_transcription != null) ...[
+                const SizedBox(height: 20),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Transcript Preview',
+                    style: AppTextStyles.heading2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CardLayout(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _transcription!,
+                        style: AppTextStyles.body2.copyWith(height: 1.5),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            // View full transcript in a dialog
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: const Text('Full Transcript'),
+                                    content: SingleChildScrollView(
+                                      child: Text(_transcription!),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Close'),
+                                      ),
+                                    ],
+                                  ),
+                            );
+                          },
+                          child: const Text('View Full Transcript →'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Extra bottom padding to prevent overflow
+                const SizedBox(height: 20),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

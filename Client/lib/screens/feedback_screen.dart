@@ -32,7 +32,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   bool _isPlaying = false;
   double _sliderValue = 0.0;
   String _currentPosition = '00:00';
-  String _totalDuration = '05:45';
+  String _totalDuration =
+      '00:00'; // Initialize with 00:00 instead of fixed 05:45
   late AudioPlayer _audioPlayer;
   Map<String, dynamic>? _apiResponse; // Add this line to store API response
   late SpeechModel _speechModel;
@@ -41,70 +42,120 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   int _recordingSeconds = 0;
   int _minDurationSeconds = 300; // Default 5 minutes
   int _maxDurationSeconds = 420; // Default 7 minutes
+  bool _audioInitialized = false; // Track if audio was successfully initialized
 
   @override
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _initializeAudio(); // Add this line
-    _apiResponse = widget.apiResponse; // Initialize API response from widget
-    
-    // Initialize speech model from widget or create new one
-    _speechModel = widget.speechModel ?? 
-      SpeechModel(
+
+    // Initialize API response from widget
+    _apiResponse = widget.apiResponse;
+
+    // Initialize speech model safely
+    if (widget.speechModel != null) {
+      _speechModel = widget.speechModel!;
+    } else {
+      // Create default model with safe values
+      _speechModel = SpeechModel(
         topic: 'Speech Analysis',
         transcription: widget.transcription,
         analysis: widget.apiResponse,
         audioData: widget.audioData,
+        // Initialize with defaults that can be overridden later
+        speechType: 'Prepared Speech',
+        expectedDuration: '5–7 minutes',
       );
-    
+    }
+
     // Extract duration information if available in apiResponse
     if (_apiResponse != null) {
-      _recordingSeconds = _apiResponse!['recordingSeconds'] as int? ?? 0;
-      _isWithinDuration = _apiResponse!['isWithinDuration'] as bool? ?? true;
-      _durationFeedback = _apiResponse!['durationFeedback'] as String? ?? '';
-      _minDurationSeconds = _apiResponse!['minDurationSeconds'] as int? ?? 300;
-      _maxDurationSeconds = _apiResponse!['maxDurationSeconds'] as int? ?? 420;
-      
-      // Ensure we have the expected duration in the model
-      if (_speechModel.expectedDuration == "5–7 minutes" && 
-          _apiResponse!.containsKey('duration')) {
-        _speechModel.expectedDuration = _apiResponse!['duration'] as String;
+      try {
+        _recordingSeconds = _apiResponse!['recordingSeconds'] as int? ?? 0;
+        _isWithinDuration = _apiResponse!['isWithinDuration'] as bool? ?? true;
+        _durationFeedback = _apiResponse!['durationFeedback'] as String? ?? '';
+        _minDurationSeconds =
+            _apiResponse!['minDurationSeconds'] as int? ?? 300;
+        _maxDurationSeconds =
+            _apiResponse!['maxDurationSeconds'] as int? ?? 420;
+
+        // Ensure we have the expected duration in the model
+        if (_apiResponse!.containsKey('duration')) {
+          _speechModel.expectedDuration =
+              _apiResponse!['duration'] as String? ??
+              _speechModel.expectedDuration;
+        }
+      } catch (e) {
+        print('Error parsing API response durations: $e');
+        // Keep default values if parsing failed
       }
     }
 
+    _initializeAudio(); // Initialize audio playback
+
+    // Set up listeners for audio player
     _audioPlayer.onPositionChanged.listen((Duration position) {
-      setState(() {
-        _currentPosition = _formatTime(position.inSeconds);
-        _sliderValue = position.inSeconds / _parseTimeToSeconds(_totalDuration);
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = _formatTime(position.inSeconds);
+          final totalDurationSeconds = _parseTimeToSeconds(_totalDuration);
+          if (totalDurationSeconds > 0) {
+            _sliderValue = position.inSeconds / totalDurationSeconds;
+          } else {
+            _sliderValue = 0;
+          }
+        });
+      }
     });
+
     _audioPlayer.onDurationChanged.listen((Duration duration) {
-      setState(() {
-        _totalDuration = _formatTime(duration.inSeconds);
-      });
+      if (mounted) {
+        setState(() {
+          _totalDuration = _formatTime(duration.inSeconds);
+        });
+      }
+    });
+
+    // Handle player completion
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _sliderValue = 0.0;
+          _currentPosition = '00:00';
+        });
+      }
     });
   }
 
   Future<void> _initializeAudio() async {
     try {
-      if (widget.audioData != null) {
+      if (widget.audioData != null && widget.audioData!.isNotEmpty) {
         // Use the audio data directly without creating a URL
         await _audioPlayer.setSourceBytes(widget.audioData!);
         print('Audio initialized from data');
-      } else if (widget.audioUrl != null) {
+        _audioInitialized = true;
+      } else if (widget.audioUrl != null && widget.audioUrl!.isNotEmpty) {
         await _audioPlayer.setSource(UrlSource(widget.audioUrl!));
         print('Audio initialized from URL');
+        _audioInitialized = true;
       } else {
         print('No audio source available');
       }
     } catch (e) {
       print('Error initializing audio: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not load audio: $e')));
+      }
     }
   }
 
   @override
   void dispose() {
+    // Make sure to release resources
+    _audioPlayer.stop();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -116,8 +167,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   }
 
   int _parseTimeToSeconds(String time) {
-    List<String> parts = time.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    try {
+      List<String> parts = time.split(':');
+      if (parts.length != 2) return 0;
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    } catch (e) {
+      print('Error parsing time: $e');
+      return 0;
+    }
   }
 
   // Helper method to format seconds into mm:ss
@@ -126,7 +183,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     final remainingSeconds = seconds % 60;
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
-  
+
   // Helper method to get color based on duration compliance
   Color _getDurationComplianceColor() {
     if (_isWithinDuration) {
@@ -137,7 +194,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       return AppColors.error;
     }
   }
-  
+
   // Helper method to get icon based on duration compliance
   IconData _getDurationComplianceIcon() {
     if (_isWithinDuration) {
@@ -147,6 +204,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     } else {
       return Icons.error;
     }
+  }
+
+  // Helper to safely access topic relevance data
+  bool hasTopicRelevance() {
+    return _apiResponse != null &&
+        _apiResponse!.containsKey('speech_development') &&
+        _apiResponse!['speech_development'] is Map<String, dynamic> &&
+        _apiResponse!['speech_development'].containsKey('topic_relevance');
   }
 
   @override
@@ -220,7 +285,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                             ),
                           ],
                         ),
-                        
+
                         // Add duration compliance indicator
                         if (_recordingSeconds > 0) ...[
                           const Divider(height: 32),
@@ -263,6 +328,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 // Overall Score Card - Now clickable
                 GestureDetector(
                   onTap: () {
+                    // Navigate to Advanced Analysis with the full API response
                     if (_apiResponse != null) {
                       Navigator.push(
                         context,
@@ -271,6 +337,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                               (context) => AdvancedAnalysisScreen(
                                 proficiencyScores: _apiResponse,
                               ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Analysis data is not available'),
                         ),
                       );
                     }
@@ -543,6 +615,105 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+
+                // Add Topic Relevance section
+                if (hasTopicRelevance()) ...[
+                  const SizedBox(height: 24),
+                  const Text('Topic Relevance', style: AppTextStyles.heading2),
+                  const SizedBox(height: 16),
+                  CardLayout(
+                    backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Topic: "${_speechModel.topic}"',
+                          style: AppTextStyles.body1.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.topic_outlined,
+                              color: AppColors.primaryBlue,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Topic Relevance Score',
+                                    style: AppTextStyles.body1,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LinearProgressIndicator(
+                                    value:
+                                        _apiResponse!['speech_development']['topic_relevance']['score'] /
+                                        100,
+                                    backgroundColor: AppColors.lightBlue,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                          AppColors.primaryBlue,
+                                        ),
+                                    minHeight: 8,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_apiResponse!['speech_development']['topic_relevance']['score']}%',
+                                    style: AppTextStyles.body2.copyWith(
+                                      color: AppColors.primaryBlue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (_apiResponse!['speech_development']['topic_relevance']
+                            .containsKey('feedback')) ...[
+                          const Text(
+                            'Topic Relevance Feedback:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ...(_apiResponse!['speech_development']['topic_relevance']['feedback']
+                                  as List)
+                              .map(
+                                (feedback) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                        color: AppColors.primaryBlue,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          feedback as String,
+                                          style: AppTextStyles.body2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
