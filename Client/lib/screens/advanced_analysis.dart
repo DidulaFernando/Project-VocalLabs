@@ -30,6 +30,17 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   late double clearPurposeScore;
   late double achievementScore;
   late String effectivenessRating;
+  // Speech development variables
+  late double developmentScore;
+  late double structureScore;
+  late double timeUtilizationScore;
+  late String timeDistributionQuality;
+  // Add topic relevance variables
+  late double topicRelevanceScore;
+  late double keywordMatchScore;
+  late double semanticSimilarityScore;
+  late String topicText;
+  late List<String> topicKeywords;
 
   @override
   void initState() {
@@ -46,6 +57,26 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     final clearPurpose = effectiveness['clear_purpose'] ?? {};
     final achievementPurpose = effectiveness['achievement_of_purpose'] ?? {};
 
+    // Initialize speech development scores - Fix the data extraction
+    final speechDevelopment =
+        widget.proficiencyScores?['speech_development'] ?? {};
+    final structure = speechDevelopment['structure'] ?? {};
+    final timeUtilization = speechDevelopment['time_utilization'] ?? {};
+
+    // Fix potential null issues in time distribution access
+    Map<String, dynamic> timeDistribution = {};
+    if (timeUtilization is Map &&
+        timeUtilization.containsKey('details') &&
+        timeUtilization['details'] is Map &&
+        timeUtilization['details'].containsKey('time_distribution')) {
+      timeDistribution = timeUtilization['details']['time_distribution'] ?? {};
+    } else {
+      timeDistribution = timeUtilization['time_distribution'] ?? {};
+    }
+
+    final topicRelevance = speechDevelopment['topic_relevance'] ?? {};
+    final topicDetails = topicRelevance['details'] ?? {};
+
     // Initialize proficiency scores
     finalScore = (scores['final_score'] ?? 0.0).toDouble();
     pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
@@ -56,7 +87,8 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     pitchVolumeScore = (modulation['pitch_and_volume_score'] ?? 0.0).toDouble();
     emphasisScore = (modulation['emphasis_score'] ?? 0.0).toDouble();
 
-    // Initialize vocabulary evaluation scores (converting to 20-point scale)
+    // Initialize vocabulary evaluation scores
+    // Convert from 0-100 scale to 0-20 scale
     vocabularyScore = (vocabulary['vocabulary_score'] ?? 82.0).toDouble() * 0.2;
     grammarWordSelectionScore =
         (grammarWordSelection['score'] ?? 80.0).toDouble() * 0.2;
@@ -69,12 +101,37 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     achievementScore = (achievementPurpose['score'] ?? 80.0).toDouble() * 0.2;
     effectivenessRating = effectiveness['rating'] as String? ?? 'Good';
 
-    print('Vocabulary Score: $vocabularyScore/20');
-    print('Grammar/Word Selection Score: $grammarWordSelectionScore/20');
-    print('Pronunciation Score: $pronunciationScore/20');
-    print('Effectiveness Score: $effectivenessScore/20');
-    print('Clear Purpose Score: $clearPurposeScore/20');
-    print('Achievement Score: $achievementScore/20');
+    // Initialize speech development scores - using actual API values
+    // Convert from 0-100 scale to 0-20 scale
+    developmentScore =
+        (speechDevelopment['development_score'] ?? 80.0).toDouble() * 0.2;
+    structureScore = (structure['score'] ?? 83.0).toDouble() * 0.2;
+    timeUtilizationScore = (timeUtilization['score'] ?? 87.0).toDouble() * 0.2;
+    timeDistributionQuality = timeDistribution['quality'] as String? ?? 'good';
+
+    // Initialize topic relevance scores
+    topicRelevanceScore = (topicRelevance['score'] ?? 85.0).toDouble() * 0.2;
+    keywordMatchScore =
+        (topicDetails['keyword_match_score'] ?? 80.0).toDouble() * 0.2;
+    semanticSimilarityScore =
+        (topicDetails['semantic_similarity_score'] ?? 70.0).toDouble() * 0.2;
+    topicText = topicRelevance['topic'] as String? ?? "Unknown topic";
+
+    // Extract topic keywords safely
+    if (topicDetails.containsKey('topic_keywords') &&
+        topicDetails['topic_keywords'] is List) {
+      topicKeywords = List<String>.from(topicDetails['topic_keywords']);
+    } else {
+      topicKeywords = [];
+    }
+
+    // Log for debugging
+    print('Speech Development Score: $developmentScore/20');
+    print('Structure Score: $structureScore/20');
+    print('Time Utilization Score: $timeUtilizationScore/20');
+    print('Topic Relevance Score: $topicRelevanceScore/20');
+    print('Topic: $topicText');
+    print('Topic Keywords: $topicKeywords');
   }
 
   @override
@@ -111,22 +168,32 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.trending_up, // Growth/development icon
                         title: 'Speech Development',
-                        value: '85%',
-                        description: 'Excellent progress in speech patterns',
-                        progress: 0.85,
+                        value: '${developmentScore.toStringAsFixed(1)}/20',
+                        description: _getSpeechDevelopmentDescription(
+                          developmentScore * 5,
+                        ), // Scale back for description
+                        progress: developmentScore / 20,
                         color: AppColors.primaryBlue,
-                        subMetrics: const [
+                        subMetrics: [
                           SubMetric(
                             icon: Icons.architecture,
                             title: 'Structure of the Speech',
-                            value: '83%',
-                            progress: 0.83,
+                            value: '${structureScore.toStringAsFixed(1)}/20',
+                            progress: structureScore / 20,
                           ),
                           SubMetric(
                             icon: Icons.timer,
                             title: 'Time Duration Utilization',
-                            value: '87%',
-                            progress: 0.87,
+                            value:
+                                '${timeUtilizationScore.toStringAsFixed(1)}/20',
+                            progress: timeUtilizationScore / 20,
+                          ),
+                          SubMetric(
+                            icon: Icons.topic_outlined,
+                            title: 'Topic Relevance',
+                            value:
+                                '${topicRelevanceScore.toStringAsFixed(1)}/20',
+                            progress: topicRelevanceScore / 20,
                           ),
                         ],
                       ),
@@ -160,7 +227,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       const Divider(height: 32),
                       _buildMetricItem(
                         icon: Icons.psychology_alt, // Brain/thinking icon
-                        title: 'Effectiveness of the Speech',
+                        title: 'Effectiveness',
                         value: '${effectivenessScore.toStringAsFixed(1)}/20',
                         description: _getEffectivenessDescription(
                           effectivenessScore * 5,
@@ -415,6 +482,20 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     return 'Basic communication skills';
   }
 
+  String _getSpeechDevelopmentDescription(double score) {
+    if (score >= 17) return 'Exceptionally well-developed speech';
+    if (score >= 15) return 'Well-structured speech with effective timing';
+    if (score >= 13) return 'Good speech development';
+    return 'Basic speech structure';
+  }
+
+  String _getTopicRelevanceDescription(double score) {
+    if (score >= 17) return 'Exceptional topic focus and relevance';
+    if (score >= 15) return 'Strong topic alignment throughout speech';
+    if (score >= 13) return 'Good topic relevance';
+    return 'Speech could better address the stated topic';
+  }
+
   Color _getProficiencyColor(double score) {
     if (score >= 16) return AppColors.success;
     if (score >= 12) return AppColors.primaryBlue;
@@ -434,7 +515,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
 
     // Use actual values from class variables where available
     final values = [
-      0.85, // Speech Development (hardcoded for now)
+      developmentScore / 20, // Speech Development (normalize to 0-1)
       vocabularyScore / 20, // Vocabulary Evaluation (normalize to 0-1)
       effectivenessScore / 20, // Effectiveness of the Speech (normalize to 0-1)
       modulationScore / 20, // Voice Analysis (normalize to 0-1)

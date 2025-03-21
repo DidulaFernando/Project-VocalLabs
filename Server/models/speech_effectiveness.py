@@ -10,10 +10,23 @@ import math
 def download_nltk_data():
     try:
         nltk.data.find('tokenizers/punkt')
-        nltk.data.find('corpora/stopwords')
     except LookupError:
         nltk.download('punkt')
+    
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
         nltk.download('stopwords')
+    
+    try:
+        nltk.data.find('taggers/averaged_perceptron_tagger')
+    except LookupError:
+        nltk.download('averaged_perceptron_tagger')
+    
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet')
 
 # Keywords indicating purpose/intent
 PURPOSE_KEYWORDS = {

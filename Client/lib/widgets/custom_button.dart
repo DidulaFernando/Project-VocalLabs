@@ -8,6 +8,7 @@ class CustomButton extends StatelessWidget {
   final Color? backgroundColor;
   final Color? textColor;
   final bool isOutlined;
+  final bool isDisabled; // Add this property
   final IconData? icon;
   final double width;
 
@@ -18,21 +19,28 @@ class CustomButton extends StatelessWidget {
     this.backgroundColor,
     this.textColor,
     this.isOutlined = false,
+    this.isDisabled = false, // Default to not disabled
     this.icon,
     this.width = double.infinity,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = backgroundColor ?? AppColors.primaryBlue;
-    final txtColor = textColor ?? (isOutlined ? color : Colors.white);
+    final color =
+        isDisabled
+            ? Colors.grey.shade300
+            : backgroundColor ?? AppColors.primaryBlue;
+    final txtColor =
+        isDisabled
+            ? Colors.grey
+            : textColor ?? (isOutlined ? color : Colors.white);
 
     return Container(
       width: width,
       margin: const EdgeInsets.symmetric(vertical: 8),
       height: 56,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isDisabled ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: isOutlined ? Colors.transparent : color,
           foregroundColor: txtColor,

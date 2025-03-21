@@ -16,6 +16,16 @@ def download_nltk_data():
         nltk.data.find('taggers/averaged_perceptron_tagger')
     except LookupError:
         nltk.download('averaged_perceptron_tagger')
+    
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords')
+    
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet')
 
 # Vocabulary complexity levels with some common words in each category
 BASIC_WORDS = {
@@ -114,6 +124,7 @@ def analyze_grammar_and_word_selection(transcription):
     
     # Sentence structure analysis (using NLTK's part-of-speech tagging)
     try:
+        # Use the standard tagger (not the _eng version)
         tagged_words = nltk.pos_tag(words)
         pos_counts = Counter(tag for _, tag in tagged_words)
         
