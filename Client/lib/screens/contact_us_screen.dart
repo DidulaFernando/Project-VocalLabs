@@ -1,4 +1,5 @@
-// lib/screens/contact_us_screen.dart
+// Screen that displays a contact form and alternative contact methods
+// allowing users to send messages and get support
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
@@ -12,12 +13,14 @@ class ContactUsScreen extends StatefulWidget {
 }
 
 class _ContactUsScreenState extends State<ContactUsScreen> {
+  // Text editing controllers for form input fields
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _subjectController = TextEditingController();
   final _messageController = TextEditingController();
   String _selectedCategory = 'General Inquiry';
 
+  // Available categories for contact form dropdown
   final List<String> _categories = [
     'General Inquiry',
     'Technical Support',
@@ -27,6 +30,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     'Other',
   ];
 
+  // Cleanup resources when widget is disposed
   @override
   void dispose() {
     _nameController.dispose();
@@ -176,6 +180,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     );
   }
 
+  // Build the contact form UI
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -199,6 +204,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     );
   }
 
+  // Build the category dropdown selector
   Widget _buildDropdown() {
     return DropdownButtonFormField<String>(
       value: _selectedCategory,
@@ -228,6 +234,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     );
   }
 
+  // Build a single contact method item (email, phone, address)
   Widget _buildContactMethod({
     required IconData icon,
     required String title,
@@ -271,9 +278,10 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     );
   }
 
+  // Handle form submission and display success message
   void _submitForm() {
-    // Implement form submission logic
-
+    
+    
     // Show success dialog
     showDialog(
       context: context,
