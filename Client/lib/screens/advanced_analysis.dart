@@ -173,7 +173,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                           developmentScore * 5,
                         ), // Scale back for description
                         progress: developmentScore / 20,
-                        color: AppColors.primaryBlue,
+                        color: const Color.fromARGB(255, 62, 71, 145),
                         subMetrics: [
                           SubMetric(
                             icon: Icons.architecture,
@@ -206,7 +206,7 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                           vocabularyScore * 5,
                         ), // Scale back for description
                         progress: vocabularyScore / 20,
-                        color: AppColors.accent,
+                        color: const Color.fromARGB(255, 81, 161, 165),
                         subMetrics: [
                           SubMetric(
                             icon: Icons.spellcheck,
@@ -376,12 +376,20 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                     const SizedBox(height: 4),
                     Text(description, style: AppTextStyles.body2),
                     const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: AppColors.lightBlue,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                      minHeight: 5,
-                      borderRadius: BorderRadius.circular(3),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.white,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                          minHeight: 5,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -446,12 +454,20 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: AppColors.lightBlue.withOpacity(0.5),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(2),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                      minHeight: 4,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -527,8 +543,8 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
       painter: SimpleRadarChartPainter(
         values: values,
         categories: categories,
-        fillColor: AppColors.primaryBlue.withOpacity(0.2),
-        borderColor: AppColors.primaryBlue,
+        fillColor: const Color.fromARGB(255, 169, 72, 161).withOpacity(0.2),
+        borderColor: const Color.fromARGB(255, 174, 9, 161),
         textColor: AppColors.lightText,
       ),
     );

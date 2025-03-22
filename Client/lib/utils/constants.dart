@@ -2,12 +2,23 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primaryBlue = Color(0xFF87ACFF);
-  static const Color lightBlue = Color(0xFFD6E4FF);
-  static const Color darkText = Color(0xFF2D2D2D);
-  static const Color lightText = Color(0xFF757575);
-  static const Color background = Colors.white;
-  static const Color cardBackground = Color(0xFFF5F9FF);
+  static const Color primaryBlue = Color(0xFF7C2474);
+  static const Color lightBlue = Color(
+    0xFF9E4696,
+  ); // Lighter variant of the purple
+  static const Color darkText = Color(0xFFF5F5F5);
+  static const Color lightText = Color(
+    0xFFE0E0E0,
+  ); // Changed from 0xFF757575 to a lighter shade
+  static const Color background = Color(
+    0xFF342E3D,
+  ); // Changed from Colors.white
+  static const Color cardBackground = Color.fromARGB(
+    255,
+    117,
+    79,
+    129,
+  ); // Changed to darker purple
   static const Color accent = Color(0xFFE284FF);
   static const Color success = Color(0xFF4CAF50);
   static const Color warning = Color(0xFFFFA726);
