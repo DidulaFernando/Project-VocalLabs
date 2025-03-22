@@ -35,12 +35,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   late double structureScore;
   late double timeUtilizationScore;
   late String timeDistributionQuality;
-  // Add topic relevance variables
-  late double topicRelevanceScore;
-  late double keywordMatchScore;
-  late double semanticSimilarityScore;
-  late String topicText;
-  late List<String> topicKeywords;
 
   @override
   void initState() {
@@ -54,8 +48,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     final pronunciation = vocabulary['pronunciation'] ?? {};
     final effectiveness =
         widget.proficiencyScores?['effectiveness_evaluation'] ?? {};
-    final clearPurpose = effectiveness['clear_purpose'] ?? {};
-    final achievementPurpose = effectiveness['achievement_of_purpose'] ?? {};
 
     // Initialize speech development scores - Fix the data extraction
     final speechDevelopment =
@@ -74,9 +66,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
       timeDistribution = timeUtilization['time_distribution'] ?? {};
     }
 
-    final topicRelevance = speechDevelopment['topic_relevance'] ?? {};
-    final topicDetails = topicRelevance['details'] ?? {};
-
     // Initialize proficiency scores
     finalScore = (scores['final_score'] ?? 0.0).toDouble();
     pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
@@ -94,12 +83,21 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         (grammarWordSelection['score'] ?? 80.0).toDouble() * 0.2;
     pronunciationScore = (pronunciation['score'] ?? 84.0).toDouble() * 0.2;
 
-    // Initialize effectiveness scores (converting to 20-point scale)
-    effectivenessScore =
-        (effectiveness['effectiveness_score'] ?? 78.0).toDouble() * 0.2;
-    clearPurposeScore = (clearPurpose['score'] ?? 76.0).toDouble() * 0.2;
-    achievementScore = (achievementPurpose['score'] ?? 80.0).toDouble() * 0.2;
-    effectivenessRating = effectiveness['rating'] as String? ?? 'Good';
+    // Initialize effectiveness scores with proper scaling
+    final effectivenessEval = scores['effectiveness_evaluation'] ?? {};
+    effectivenessScore = (effectivenessEval['effectiveness_score'] ?? 0.0).toDouble();
+    clearPurposeScore = (effectivenessEval['clear_purpose']?['score'] ?? 0.0).toDouble();
+    achievementScore = (effectivenessEval['achievement_of_purpose']?['score'] ?? 0.0).toDouble();
+    
+    // Ensure total score is the sum of sub-scores
+    effectivenessScore = clearPurposeScore + achievementScore;
+    effectivenessRating = _getEffectivenessRating(effectivenessScore);
+
+    // Debug logging
+    print('Raw effectiveness data: $effectivenessEval');
+    print('Clear Purpose Score: $clearPurposeScore/10');
+    print('Achievement Score: $achievementScore/10');
+    print('Total Effectiveness Score: $effectivenessScore/20');
 
     // Initialize speech development scores - using actual API values
     // Convert from 0-100 scale to 0-20 scale
@@ -109,29 +107,10 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     timeUtilizationScore = (timeUtilization['score'] ?? 87.0).toDouble() * 0.2;
     timeDistributionQuality = timeDistribution['quality'] as String? ?? 'good';
 
-    // Initialize topic relevance scores
-    topicRelevanceScore = (topicRelevance['score'] ?? 85.0).toDouble() * 0.2;
-    keywordMatchScore =
-        (topicDetails['keyword_match_score'] ?? 80.0).toDouble() * 0.2;
-    semanticSimilarityScore =
-        (topicDetails['semantic_similarity_score'] ?? 70.0).toDouble() * 0.2;
-    topicText = topicRelevance['topic'] as String? ?? "Unknown topic";
-
-    // Extract topic keywords safely
-    if (topicDetails.containsKey('topic_keywords') &&
-        topicDetails['topic_keywords'] is List) {
-      topicKeywords = List<String>.from(topicDetails['topic_keywords']);
-    } else {
-      topicKeywords = [];
-    }
-
     // Log for debugging
     print('Speech Development Score: $developmentScore/20');
     print('Structure Score: $structureScore/20');
     print('Time Utilization Score: $timeUtilizationScore/20');
-    print('Topic Relevance Score: $topicRelevanceScore/20');
-    print('Topic: $topicText');
-    print('Topic Keywords: $topicKeywords');
   }
 
   @override
@@ -188,13 +167,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                                 '${timeUtilizationScore.toStringAsFixed(1)}/20',
                             progress: timeUtilizationScore / 20,
                           ),
-                          SubMetric(
-                            icon: Icons.topic_outlined,
-                            title: 'Topic Relevance',
-                            value:
-                                '${topicRelevanceScore.toStringAsFixed(1)}/20',
-                            progress: topicRelevanceScore / 20,
-                          ),
                         ],
                       ),
                       const Divider(height: 32),
@@ -238,14 +210,14 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                           SubMetric(
                             icon: Icons.lightbulb_outline,
                             title: 'Clear Purpose and Relevance',
-                            value: '${clearPurposeScore.toStringAsFixed(1)}/20',
-                            progress: clearPurposeScore / 20,
+                            value: '${clearPurposeScore.toStringAsFixed(1)}/10', // Changed to /10
+                            progress: clearPurposeScore / 10, // Changed to /10
                           ),
                           SubMetric(
                             icon: Icons.flag,
                             title: 'Achievement of Purpose',
-                            value: '${achievementScore.toStringAsFixed(1)}/20',
-                            progress: achievementScore / 20,
+                            value: '${achievementScore.toStringAsFixed(1)}/10', // Changed to /10
+                            progress: achievementScore / 10, // Changed to /10
                           ),
                         ],
                       ),
@@ -489,13 +461,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     return 'Basic speech structure';
   }
 
-  String _getTopicRelevanceDescription(double score) {
-    if (score >= 17) return 'Exceptional topic focus and relevance';
-    if (score >= 15) return 'Strong topic alignment throughout speech';
-    if (score >= 13) return 'Good topic relevance';
-    return 'Speech could better address the stated topic';
-  }
-
   Color _getProficiencyColor(double score) {
     if (score >= 16) return AppColors.success;
     if (score >= 12) return AppColors.primaryBlue;
@@ -532,6 +497,14 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
         textColor: AppColors.lightText,
       ),
     );
+  }
+
+  // Add helper method to determine rating
+  String _getEffectivenessRating(double score) {
+    if (score >= 16) return 'Excellent';
+    if (score >= 12) return 'Good';
+    if (score >= 8) return 'Fair';
+    return 'Needs Improvement';
   }
 }
 
