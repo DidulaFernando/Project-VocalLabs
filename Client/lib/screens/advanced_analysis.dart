@@ -35,12 +35,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   late double structureScore;
   late double timeUtilizationScore;
   late String timeDistributionQuality;
-  // Add topic relevance variables
-  late double topicRelevanceScore;
-  late double keywordMatchScore;
-  late double semanticSimilarityScore;
-  late String topicText;
-  late List<String> topicKeywords;
 
   @override
   void initState() {
@@ -71,9 +65,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     } else {
       timeDistribution = timeUtilization['time_distribution'] ?? {};
     }
-
-    final topicRelevance = speechDevelopment['topic_relevance'] ?? {};
-    final topicDetails = topicRelevance['details'] ?? {};
 
     // Initialize proficiency scores
     finalScore = (scores['final_score'] ?? 0.0).toDouble();
@@ -116,29 +107,10 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     timeUtilizationScore = (timeUtilization['score'] ?? 87.0).toDouble() * 0.2;
     timeDistributionQuality = timeDistribution['quality'] as String? ?? 'good';
 
-    // Initialize topic relevance scores
-    topicRelevanceScore = (topicRelevance['score'] ?? 85.0).toDouble() * 0.2;
-    keywordMatchScore =
-        (topicDetails['keyword_match_score'] ?? 80.0).toDouble() * 0.2;
-    semanticSimilarityScore =
-        (topicDetails['semantic_similarity_score'] ?? 70.0).toDouble() * 0.2;
-    topicText = topicRelevance['topic'] as String? ?? "Unknown topic";
-
-    // Extract topic keywords safely
-    if (topicDetails.containsKey('topic_keywords') &&
-        topicDetails['topic_keywords'] is List) {
-      topicKeywords = List<String>.from(topicDetails['topic_keywords']);
-    } else {
-      topicKeywords = [];
-    }
-
     // Log for debugging
     print('Speech Development Score: $developmentScore/20');
     print('Structure Score: $structureScore/20');
     print('Time Utilization Score: $timeUtilizationScore/20');
-    print('Topic Relevance Score: $topicRelevanceScore/20');
-    print('Topic: $topicText');
-    print('Topic Keywords: $topicKeywords');
   }
 
   @override
@@ -194,13 +166,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                             value:
                                 '${timeUtilizationScore.toStringAsFixed(1)}/20',
                             progress: timeUtilizationScore / 20,
-                          ),
-                          SubMetric(
-                            icon: Icons.topic_outlined,
-                            title: 'Topic Relevance',
-                            value:
-                                '${topicRelevanceScore.toStringAsFixed(1)}/20',
-                            progress: topicRelevanceScore / 20,
                           ),
                         ],
                       ),
@@ -494,13 +459,6 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
     if (score >= 15) return 'Well-structured speech with effective timing';
     if (score >= 13) return 'Good speech development';
     return 'Basic speech structure';
-  }
-
-  String _getTopicRelevanceDescription(double score) {
-    if (score >= 17) return 'Exceptional topic focus and relevance';
-    if (score >= 15) return 'Strong topic alignment throughout speech';
-    if (score >= 13) return 'Good topic relevance';
-    return 'Speech could better address the stated topic';
   }
 
   Color _getProficiencyColor(double score) {

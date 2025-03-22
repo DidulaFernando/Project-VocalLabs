@@ -144,7 +144,7 @@ def generate_timing_feedback(actual_duration_str, expected_duration, speech_type
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...), 
-                      topic: str = Form(None), 
+                      topic: str = Form(None),  # Topic received here
                       speech_type: str = Form(None), 
                       expected_duration: str = Form(None), 
                       actual_duration: str = Form(None)):
@@ -182,14 +182,18 @@ async def upload_file(file: UploadFile = File(...),
     # New: Analyze speech development
     speech_development = evaluate_speech_development(
         transcription,
-        topic,
         actual_duration_seconds,
         expected_duration
     )
     
     # Add speech effectiveness evaluation with proper error handling
     try:
-        speech_effectiveness = evaluate_speech_effectiveness(transcription, topic)
+        speech_effectiveness = evaluate_speech_effectiveness(
+            transcription, 
+            topic,
+            expected_duration or "5-7 minutes",  # Use provided duration or default
+            actual_duration_seconds  # Pass actual duration in seconds
+        )
         logging.info("\nSpeech Effectiveness Analysis:")
         logging.info(f"Total Score: {speech_effectiveness['total_score']}/20")
         logging.info(f"Relevance Score: {speech_effectiveness['relevance_score']}/10")

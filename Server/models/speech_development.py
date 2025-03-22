@@ -513,231 +513,17 @@ def get_rating_description(score):
     else:
         return "Needs Improvement"
 
-def analyze_topic_relevance(topic, transcription):
+def evaluate_speech_development(transcription: str, actual_duration: int, expected_duration: str) -> dict:
     """
-    Analyze how well the speech content aligns with the provided topic.
-    
-    Parameters:
-    topic (str): The stated topic of the speech
-    transcription (str): The transcribed speech text
-    
-    Returns:
-    dict: Analysis of topic relevance with scores
-    """
-    try:
-        # Make sure NLTK resources are available
-        download_nltk_data()
-        
-        # Return default values for empty inputs
-        if not topic or not transcription:
-            return {
-                "relevance_score": 75.0,
-                "keyword_match_score": 0.0,
-                "semantic_similarity_score": 0.0,
-                "keyword_distribution_score": 0.0,
-                "topic_keywords": [],
-                "matched_keywords": []
-            }
-        
-        # Clean and preprocess text
-        try:
-            stop_words = set(stopwords.words('english'))
-        except LookupError:
-            # If stopwords aren't available, use a simple fallback
-            print("Warning: NLTK stopwords not available, using fallback")
-            stop_words = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'by'}
-        
-        try:
-            lemmatizer = WordNetLemmatizer()
-        except LookupError:
-            # If WordNet isn't available, just use identity function
-            print("Warning: NLTK WordNet not available, using identity function")
-            class IdentityLemmatizer:
-                def lemmatize(self, word):
-                    return word
-            lemmatizer = IdentityLemmatizer()
-        
-        def clean_text(text):
-            try:
-                # Remove punctuation and convert to lowercase
-                text = text.lower()
-                text = re.sub(r'\[\d+\.\d+ second pause\]', '', text)  # Remove pause markers
-                text = text.translate(str.maketrans('', '', string.punctuation))
-                # Tokenize and remove stopwords
-                words = word_tokenize(text)
-                words = [word for word in words if word not in stop_words and len(word) > 2]
-                # Lemmatize words
-                words = [lemmatizer.lemmatize(word) for word in words]
-                return words
-            except Exception as e:
-                print(f"Error in clean_text: {str(e)}")
-                # Return simple word split as fallback
-                text = text.lower()
-                text = re.sub(r'[^\w\s]', '', text)
-                return [word for word in text.split() if word not in stop_words and len(word) > 2]
-        
-        # Extract topic keywords
-        topic_words = clean_text(topic)
-        
-        # Get POS tags to identify key nouns and verbs in topic
-        try:
-            topic_pos_tags = nltk.pos_tag(topic_words)
-            
-            # Extract important words from topic (nouns, verbs, adjectives)
-            important_tags = {'NN', 'NNS', 'NNP', 'NNPS', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'JJ', 'JJR', 'JJS'}
-            key_topic_words = [word for word, tag in topic_pos_tags if tag[:2] in important_tags]
-        except Exception as e:
-            print(f"Error in POS tagging: {str(e)}")
-            # If POS tagging fails, just use all topic words
-            key_topic_words = topic_words
-        
-        # If we couldn't extract any key words, use all topic words
-        if not key_topic_words and topic_words:
-            key_topic_words = topic_words
-        
-        # Clean transcription
-        transcript_words = clean_text(transcription)
-        
-        # Calculate keyword match score
-        matched_keywords = []
-        keyword_match_score = 0.0
-        
-        if key_topic_words:
-            for keyword in key_topic_words:
-                if keyword in transcript_words:
-                    matched_keywords.append(keyword)
-            
-            keyword_match_score = (len(matched_keywords) / len(key_topic_words)) * 100 if key_topic_words else 0.0
-        
-        # Calculate keyword distribution score - this part was missing
-        keyword_distribution_score = 0.0
-        if matched_keywords:
-            try:
-                # Split transcript into segments (beginning, middle, end)
-                sentences = sent_tokenize(transcription)
-                total_sentences = len(sentences)
-                
-                if total_sentences < 3:
-                    keyword_distribution_score = 50.0
-                else:
-                    beginning = ' '.join(sentences[:total_sentences//3])
-                    middle = ' '.join(sentences[total_sentences//3:2*total_sentences//3])
-                    end = ' '.join(sentences[2*total_sentences//3:])
-                    
-                    sections = [beginning, middle, end]
-                    section_scores = []
-                    
-                    for section in sections:
-                        section_words = clean_text(section)
-                        section_matched = sum(1 for keyword in matched_keywords if keyword in section_words)
-                        section_score = section_matched / len(matched_keywords) if matched_keywords else 0
-                        section_scores.append(section_score)
-                    
-                    # If keywords appear in all sections, that's ideal
-                    if all(score > 0 for score in section_scores):
-                        keyword_distribution_score = 90.0 + 10.0 * min(section_scores) / max(max(section_scores), 0.001)
-                    # If keywords appear in 2 of 3 sections, that's good
-                    elif sum(score > 0 for score in section_scores) == 2:
-                        keyword_distribution_score = 75.0
-                    # If keywords only appear in 1 section, that's not ideal but okay
-                    else:
-                        keyword_distribution_score = 60.0
-            except Exception as e:
-                print(f"Error in keyword distribution analysis: {str(e)}")
-                keyword_distribution_score = 50.0
-        else:
-            keyword_distribution_score = 50.0
-        
-        # TF-IDF implementation with proper error handling
-        semantic_similarity_score = 0.0
-        try:
-            if topic and transcription and len(topic.split()) > 0 and len(transcription.split()) > 0:
-                # Use TF-IDF vectorizer
-                vectorizer = TfidfVectorizer(min_df=1, max_features=1000)
-                
-                # Handle very short inputs by adding placeholder content
-                # This prevents TfidfVectorizer from failing on very short inputs
-                safe_topic = topic
-                safe_transcript = transcription
-                
-                # Make sure inputs are long enough for TF-IDF
-                if len(topic.split()) < 3:
-                    safe_topic = topic + " topic placeholder text for analysis"
-                if len(transcription.split()) < 3:
-                    safe_transcript = transcription + " transcript placeholder text for analysis"
-                
-                # Handle empty vocabulary error
-                try:
-                    tfidf_matrix = vectorizer.fit_transform([safe_topic, safe_transcript])
-                    
-                    # Calculate cosine similarity (will be between 0 and 1)
-                    similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-                    
-                    # Convert to a score out of 100
-                    semantic_similarity_score = similarity * 100
-                except ValueError as ve:
-                    print(f"TF-IDF vectorization error: {ve}")
-                    # Fallback to simple word overlap ratio if vectorization fails
-                    topic_set = set(safe_topic.lower().split())
-                    transcript_set = set(safe_transcript.lower().split())
-                    
-                    if topic_set and transcript_set:
-                        overlap = len(topic_set.intersection(transcript_set))
-                        semantic_similarity_score = (overlap / len(topic_set)) * 100
-                    else:
-                        semantic_similarity_score = 60.0  # Default when no meaningful comparison is possible
-            else:
-                print("Topic or transcription too short for TF-IDF analysis")
-                semantic_similarity_score = 60.0
-        except Exception as e:
-            print(f"Error calculating semantic similarity: {e}")
-            semantic_similarity_score = 60.0
-        
-        # The rest of the function remains the same
-        # ...existing code...
-        
-        # Calculate overall relevance score with weighted components
-        # 40% keyword match, 30% semantic similarity, 30% keyword distribution
-        relevance_score = (
-            keyword_match_score * 0.4 +
-            semantic_similarity_score * 0.3 +
-            keyword_distribution_score * 0.3
-        )
-        
-        # Ensure score is within 0-100 range and provide a floor of 50 if any text is present
-        relevance_score = max(50 if topic and transcription else 0, min(100, relevance_score))
-        
-        return {
-            "relevance_score": round(relevance_score, 1),
-            "keyword_match_score": round(keyword_match_score, 1),
-            "semantic_similarity_score": round(semantic_similarity_score, 1),
-            "keyword_distribution_score": round(keyword_distribution_score, 1),
-            "topic_keywords": key_topic_words,
-            "matched_keywords": matched_keywords
-        }
-    except Exception as e:
-        print(f"Error in topic relevance analysis: {str(e)}")
-        return {
-            "relevance_score": 75.0,
-            "keyword_match_score": 0.0,
-            "semantic_similarity_score": 0.0,
-            "keyword_distribution_score": 0.0,
-            "topic_keywords": [],
-            "matched_keywords": []
-        }
-
-def evaluate_speech_development(transcription, topic, actual_duration, expected_duration):
-    """
-    Evaluate the development of a speech based on structure, time utilization, and topic relevance.
+    Evaluate the development of a speech based on structure and time utilization.
     
     Parameters:
     transcription (str): The transcribed speech text
-    topic (str): The topic of the speech
     actual_duration (int): Actual duration in seconds
     expected_duration (str): Expected duration string (e.g., "5–7 minutes")
     
     Returns:
-    dict: Complete speech development evaluation
+    dict: Complete speech development evaluation with structure and time utilization analysis
     """
     # Analyze structure
     structure_analysis = analyze_speech_structure(transcription)
@@ -745,19 +531,13 @@ def evaluate_speech_development(transcription, topic, actual_duration, expected_
     # Evaluate time utilization with structure information
     time_analysis = evaluate_time_utilization(actual_duration, expected_duration, structure_analysis)
     
-    # Analyze topic relevance
-    topic_analysis = analyze_topic_relevance(topic, transcription)
-    topic_relevance = topic_analysis["relevance_score"]
-    
     # Calculate overall development score with weights
-    structure_weight = 0.5
-    time_weight = 0.3
-    relevance_weight = 0.2
+    structure_weight = 0.6  # Increased from 0.5
+    time_weight = 0.4      # Increased from 0.3
     
     overall_score = (
         structure_analysis["structure_score"] * structure_weight +
-        time_analysis["time_utilization_score"] * time_weight +
-        topic_relevance * relevance_weight
+        time_analysis["time_utilization_score"] * time_weight
     )
     
     # Generate structure-specific feedback
@@ -798,12 +578,10 @@ def evaluate_speech_development(transcription, topic, actual_duration, expected_
     
     # Add feedback about time distribution if available
     if "time_distribution" in time_analysis and time_analysis["time_distribution"]["breakdown"]:
-        # Get the section with the most problematic proportion
         intro_percent = time_analysis["time_distribution"]["breakdown"]["introduction_percentage"]
         body_percent = time_analysis["time_distribution"]["breakdown"]["body_percentage"]
         conclusion_percent = time_analysis["time_distribution"]["breakdown"]["conclusion_percentage"]
         
-        # Identify the most significant time distribution issue
         if intro_percent < 5:
             time_feedback.append("Your introduction was too brief. Aim for 10-15% of your total speech time.")
         elif intro_percent > 25:
@@ -819,26 +597,8 @@ def evaluate_speech_development(transcription, topic, actual_duration, expected_
         elif conclusion_percent > 25:
             time_feedback.append("Your conclusion was too long. Try to keep it to 10-15% of your total speech time.")
         
-        # If no significant issues and distribution quality is good or better, provide positive feedback
         if not time_feedback[1:] and time_analysis["time_distribution"]["quality"] in ["good", "very_good", "excellent"]:
             time_feedback.append("You allocated your time effectively between introduction, body, and conclusion.")
-    
-    # Generate topic relevance feedback
-    topic_feedback = []
-    
-    if topic_analysis["keyword_match_score"] < 60:
-        if topic_analysis["topic_keywords"]:
-            topic_feedback.append(f"Your speech didn't include many keywords related to '{topic}'. Try to incorporate terms like: {', '.join(topic_analysis['topic_keywords'][:3])}.")
-        else:
-            topic_feedback.append(f"Your speech seemed to stray from the topic '{topic}'. Try to keep your content more focused on the main subject.")
-    
-    if topic_analysis["keyword_distribution_score"] < 70:
-        topic_feedback.append("Reference your topic throughout the speech, not just in one section.")
-    
-    if topic_analysis["relevance_score"] >= 85:
-        topic_feedback.append(f"Excellent job staying on topic. Your speech clearly addressed '{topic}'.")
-    elif topic_analysis["relevance_score"] >= 70:
-        topic_feedback.append(f"Your speech generally stayed on topic. Consider making '{topic}' more central to your message.")
     
     # Round to 1 decimal place
     overall_score = round(overall_score, 1)
@@ -858,11 +618,5 @@ def evaluate_speech_development(transcription, topic, actual_duration, expected_
             "score": round(time_analysis["time_utilization_score"], 1),
             "details": time_analysis,
             "feedback": time_feedback
-        },
-        "topic_relevance": {
-            "score": round(topic_relevance, 1),
-            "details": topic_analysis,
-            "feedback": topic_feedback,
-            "topic": topic
         }
     }
