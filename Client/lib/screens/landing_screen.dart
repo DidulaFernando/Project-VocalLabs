@@ -1,8 +1,9 @@
-// lib/screens/landing_screen.dart
+// Import necessary packages
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 
+// LandingScreen widget, the main onboarding screen
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
@@ -11,10 +12,13 @@ class LandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LandingScreen> {
+  // PageController to manage page transitions
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  // List of onboarding pages with their respective data
   final List<Map<String, dynamic>> _pages = [
+    // Page 1: Welcome screen
     {
       'title': 'Welcome to VocalLabs',
       'subtitle': 'Your personal speech coach',
@@ -23,6 +27,7 @@ class _LandingScreenState extends State<LandingScreen> {
       'image': 'assets/images/onboarding_1.png',
       'color': const Color(0xFF87ACFF),
     },
+    // Page 2: Speech Analysis
     {
       'title': 'Speech Analysis',
       'subtitle': 'Get detailed insights',
@@ -31,6 +36,7 @@ class _LandingScreenState extends State<LandingScreen> {
       'image': 'assets/images/onboarding_2.png',
       'color': const Color(0xFF5C86E6),
     },
+    // Page 3: Track Your Progress
     {
       'title': 'Track Your Progress',
       'subtitle': 'See your improvement over time',
@@ -41,6 +47,7 @@ class _LandingScreenState extends State<LandingScreen> {
     },
   ];
 
+  // Dispose the PageController when the widget is removed from the widget tree
   @override
   void dispose() {
     _pageController.dispose();
@@ -52,7 +59,7 @@ class _LandingScreenState extends State<LandingScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient that changes with page
+          // Background gradient that changes with the current page
           AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             decoration: BoxDecoration(
@@ -70,9 +77,11 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
 
+          // Main content of the onboarding screen
           SafeArea(
             child: Column(
               children: [
+                // PageView for displaying onboarding pages
                 Expanded(
                   flex: 6,
                   child: PageView.builder(
@@ -94,7 +103,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   ),
                 ),
 
-                // Page indicator
+                // Page indicator to show the current page
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Row(
@@ -106,10 +115,9 @@ class _LandingScreenState extends State<LandingScreen> {
                         width: index == _currentPage ? 24 : 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color:
-                              index == _currentPage
-                                  ? AppColors.primaryBlue
-                                  : Colors.grey.shade300,
+                          color: index == _currentPage
+                              ? AppColors.primaryBlue
+                              : Colors.grey.shade300,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -117,24 +125,24 @@ class _LandingScreenState extends State<LandingScreen> {
                   ),
                 ),
 
-                // Buttons
+                // Buttons for navigation
                 Expanded(
                   flex: 2,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
+                        // Primary button for "Next" or "Get Started"
                         CustomButton(
-                          text:
-                              _currentPage == _pages.length - 1
-                                  ? 'Get Started'
-                                  : 'Next',
+                          text: _currentPage == _pages.length - 1
+                              ? 'Get Started'
+                              : 'Next',
                           onPressed: () {
                             if (_currentPage == _pages.length - 1) {
-                              // On last page, navigate to login
+                              // Navigate to login screen on the last page
                               Navigator.pushReplacementNamed(context, '/login');
                             } else {
-                              // Go to next page
+                              // Navigate to the next page
                               _pageController.nextPage(
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeInOut,
@@ -143,6 +151,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
+                        // "Skip" button for skipping the onboarding
                         if (_currentPage < _pages.length - 1)
                           TextButton(
                             onPressed: () {
@@ -170,6 +179,7 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
+  // Helper method to build each onboarding page
   Widget _buildOnboardingPage({
     required String title,
     required String subtitle,
@@ -181,7 +191,7 @@ class _LandingScreenState extends State<LandingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Image Placeholder
+          // Placeholder for the page image
           Container(
             height: 240,
             width: double.infinity,
@@ -198,6 +208,7 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
           const SizedBox(height: 40),
+          // Subtitle text
           Text(
             subtitle,
             style: const TextStyle(
@@ -207,6 +218,7 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          // Title text
           Text(
             title,
             style: const TextStyle(
@@ -217,6 +229,7 @@ class _LandingScreenState extends State<LandingScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
+          // Description text
           Text(
             description,
             style: const TextStyle(
@@ -231,6 +244,7 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
+  // Helper method to get the appropriate icon for each page
   IconData _getIconForPage(String title) {
     if (title.contains('Welcome')) {
       return Icons.record_voice_over;
