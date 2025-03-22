@@ -1,3 +1,4 @@
+// Import necessary packages for audio recording, file handling, and UI
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
@@ -6,6 +7,8 @@ import 'dart:io' if (dart.library.html) 'dart:html' as io;
 import 'package:universal_html/html.dart' as html;
 import 'package:path_provider/path_provider.dart' as path_provider;
 
+/// A screen widget that handles audio recording functionality.
+/// Provides UI for recording, stopping, and managing audio recordings.
 class AudioRecordingScreen extends StatefulWidget {
   const AudioRecordingScreen({super.key});
 
@@ -13,8 +16,12 @@ class AudioRecordingScreen extends StatefulWidget {
   State<AudioRecordingScreen> createState() => _AudioRecordingScreenState();
 }
 
+/// State class for AudioRecordingScreen that manages recording logic and UI state
 class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
+  // Audio recorder instance
   late final AudioRecorder _audioRecorder;
+  
+  // State variables to track recording status
   bool _isRecording = false;
   String _recordingTime = '00:00';
   DateTime? _startTime;
@@ -22,8 +29,10 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
   bool _hasRecording = false;
   bool _isWeb = false;
   bool _isProcessing = false;
-  final int _maxRecordingDuration = 300; // 5 minutes in seconds
+  // Maximum recording duration in seconds (5 minutes)
+  final int _maxRecordingDuration = 300;
 
+  /// Initialize the recorder and check platform
   @override
   void initState() {
     super.initState();
@@ -32,6 +41,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     _initializeRecorder();
   }
 
+  /// Request and verify microphone permissions
   Future<void> _initializeRecorder() async {
     try {
       final hasPermission = await _audioRecorder.hasPermission();
@@ -47,6 +57,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     }
   }
 
+  /// Start recording audio
+  /// Sets up recording configuration and initializes timers
   Future<void> _startRecording() async {
     setState(() {
       _recordingTime = '00:00';
@@ -93,6 +105,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     }
   }
 
+  /// Timer to automatically stop recording after max duration
   void _startMaxDurationTimer() {
     Future.delayed(Duration(seconds: _maxRecordingDuration), () {
       if (_isRecording) {
@@ -101,6 +114,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     });
   }
 
+  /// Stop the current recording and save the file
   Future<void> _stopRecording() async {
     try {
       debugPrint('Attempting to stop recording...');
@@ -140,6 +154,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     }
   }
 
+  /// Process the recorded audio and navigate to playback screen
+  /// Handles both web and mobile platforms differently
   Future<void> _processAndUpload() async {
     if (_recordedPath == null) return;
 
@@ -180,6 +196,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     }
   }
 
+  /// Update the recording time display every second
   void _updateRecordingTime() {
     if (!_isRecording || _startTime == null) return;
 
@@ -195,6 +212,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     });
   }
 
+  /// Clear the current recording and reset state
   void _discardRecording() {
     setState(() {
       _hasRecording = false;
@@ -203,14 +221,18 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     });
   }
 
+  /// Clean up resources when widget is disposed
   @override
   void dispose() {
     _audioRecorder.dispose();
     super.dispose();
   }
 
+  /// Build the UI for the recording screen
+  /// Includes recording button, time display, and action buttons
   @override
   Widget build(BuildContext context) {
+    // Determine the current status text based on recording state
     final String statusText;
     if (_isRecording) {
       statusText = 'Recording in Progress';
@@ -221,6 +243,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     }
 
     return Scaffold(
+      // AppBar with close button
       appBar: AppBar(
         title: const Text('Record Speech'),
         leading: IconButton(
@@ -228,6 +251,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
           onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
         ),
       ),
+      // Main body with recording controls
       body: SafeArea(
         child: Center(
           child: Padding(

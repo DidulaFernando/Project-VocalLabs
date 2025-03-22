@@ -36,7 +36,7 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Load your transcription model here
-model = whisper.load_model("medium")
+model = whisper.load_model("base")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
