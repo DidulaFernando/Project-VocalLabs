@@ -14,5 +14,6 @@ scikit-learn>=1.0.2
 nltk>=3.7
 numpy>=1.20.0
 python-multipart
+firebase-admin
 sentence-transformers>=2.2.0
 spacy>=3.0.0

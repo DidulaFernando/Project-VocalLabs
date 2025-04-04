@@ -1,6 +1,6 @@
 import re
 import nltk
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import wordnet, brown, webtext, gutenberg, cmudict
 from collections import Counter, defaultdict
 import numpy as np
@@ -245,17 +245,7 @@ def analyze_word_complexity(word, word_percentiles, config=None):
     return min(3, max(1, final_score))
 
 def analyze_grammar_and_word_selection(transcription, word_percentiles, domain_config=None):
-    """
-    Analyze the grammar and word selection in the transcription with fairness considerations.
-    
-    Parameters:
-    transcription (str): The transcribed speech text
-    word_percentiles (dict): Dictionary of word frequency percentiles
-    domain_config (dict): Optional configuration for domain-specific scoring
-    
-    Returns:
-    dict: Analysis of grammar and word selection
-    """
+    """Analyze grammar with better differentiation between quality levels."""
     # Set default domain configuration if none provided
     if domain_config is None:
         domain_config = {
@@ -386,19 +376,489 @@ def analyze_grammar_and_word_selection(transcription, word_percentiles, domain_c
         'advanced': sum(1 for score in complexity_scores if score >= 2.5) / word_count
     }
     
-    return {
-        "word_count": word_count,
-        "unique_word_count": unique_words,
-        "lexical_diversity": round(lexical_diversity, 2),
-        "avg_word_length": round(avg_word_length, 1),
-        "word_complexity_score": round(word_complexity_score, 1),
-        "word_complexity_distribution": {k: round(v*100, 1) for k, v in complexity_distribution.items()},
-        "advanced_word_percentage": round(advanced_word_percentage, 1),
-        "sentence_complexity": round(sentence_complexity, 1),
-        "domain_appropriateness": round(domain_appropriateness, 1) if domain_appropriateness > 0 else None,
-        "domain_terms_percentage": round(domain_terms_percentage, 1) if domain_terms_percentage > 0 else None,
-        "grammar_score": round(grammar_score, 1)
+    # Add quality indicators
+    quality_indicators = {
+        'informal_markers': ['like', 'um', 'uh', 'kinda', 'gonna', 'wanna', 'ya', 'sorta'],
+        'sophisticated_phrases': [
+            'beyond', 'understand', 'perspective', 'critically', 'purpose',
+            'resilience', 'discipline', 'creativity', 'adapt', 'solve problems',
+            'analyze', 'manage', 'develop', 'skills', 'challenges'
+        ],
+        'complex_structures': [
+            'not just', 'but also', 'beyond', 'through', 'while',
+            'how to', 'isn\'t just', 'about understanding'
+        ],
+        'academic_concepts': [
+            'logic', 'problem-solving', 'emotions', 'perspective',
+            'creativity', 'discipline', 'adapt', 'critically'
+        ]
     }
+
+    # Calculate quality metrics
+    informal_count = sum(phrase in transcription.lower() for phrase in quality_indicators['informal_markers'])
+    sophisticated_count = sum(phrase in transcription.lower() for phrase in quality_indicators['sophisticated_phrases'])
+    complex_count = sum(phrase in transcription.lower() for phrase in quality_indicators['complex_structures'])
+    academic_count = sum(phrase in transcription.lower() for phrase in quality_indicators['academic_concepts'])
+    transitions_count = 0  # Initialize transitions_count
+
+    # Base score calculation (0-100)
+    base_grammar_score = 75.0
+
+    try:
+        sentences = sent_tokenize(transcription)
+        # Bonuses for sophisticated language (up to 25 points)
+        sophistication_bonus = min(25, (
+            (sophisticated_count * 3) +    # 3 points per sophisticated phrase
+            (complex_count * 2) +          # 2 points per complex structure
+            (academic_count * 2)           # 2 points per academic concept
+        ))
+        base_grammar_score += sophistication_bonus
+
+        # Coherence analysis (up to 15 points)
+        coherence_score = 0
+        if len(sentences) >= 3:
+            # Check for strong introduction
+            intro = sentences[0].lower()
+            if any(phrase in intro for phrase in ['learning', 'understand', 'purpose']):
+                coherence_score += 5
+
+            # Check for topic development
+            body_coherence = sum(1 for s in sentences[1:-1] if any(
+                phrase in s.lower() for phrase in ['because', 'therefore', 'how', 'through', 'beyond']
+            ))
+            coherence_score += min(5, body_coherence)
+
+            # Check for strong conclusion
+            conclusion = sentences[-1].lower()
+            if any(phrase in conclusion for phrase in ['purpose', 'prepare', 'life', 'valuable']):
+                coherence_score += 5
+
+        base_grammar_score += coherence_score
+
+        # Penalties for informal language
+        if informal_count > 0:
+            penalty = min(30, informal_count * 10)
+            base_grammar_score = max(40, base_grammar_score - penalty)
+
+    except Exception as e:
+        print(f"Error in grammar analysis: {e}")
+        return {"grammar_score": 70.0, "details": {"error": str(e)}}
+
+    # Normalize final score (40-95 range)
+    final_grammar_score = max(40, min(95, base_grammar_score))
+
+    # Debug logging
+    print(f"Grammar Analysis:")
+    print(f"Sophisticated words: {sophisticated_count}")
+    print(f"Complex structures: {complex_count}")
+    print(f"Transitions: {transitions_count}")
+    print(f"Base score: {base_grammar_score}")
+    print(f"Final score: {final_grammar_score}")
+
+    # Scale down to make scoring more stringent
+    scaling_factor = 0.85  # Adjust this to make scoring more strict
+    final_grammar_score = 40 + ((final_grammar_score - 40) * scaling_factor)
+
+    # Return both the score and details
+    return {
+        "grammar_score": final_grammar_score,
+        "word_count": len(words),
+        "unique_word_count": len(set(words)),
+        "details": {
+            "informal_count": informal_count,
+            "sophisticated_count": sophisticated_count,
+            "transitions_count": transitions_count,
+            "complex_count": complex_count,
+            "avg_sentence_length": avg_sentence_length if 'avg_sentence_length' in locals() else 0,
+            "sentence_complexity": sentence_complexity
+        }
+    }
+
+def analyze_grammar_and_word_selection(transcription, word_percentiles, domain_config=None):
+    """Analyze grammar with better differentiation between quality levels."""
+    # Set default domain configuration if none provided
+    if domain_config is None:
+        domain_config = {
+            'domain_name': 'general',
+            'complexity_weights': {
+                'frequency_weight': 0.5,
+                'length_weight': 0.2,
+                'semantic_weight': 0.3
+            },
+            'domain_terms': {}  # No domain-specific terms adjustment
+        }
+    
+    # Clean text and tokenize
+    cleaned_text = re.sub(r'\[[\d.]+ second pause\]', '', transcription)  # Remove pause markers
+    cleaned_text = re.sub(r'[^\w\s.,!?]', '', cleaned_text)  # Remove special characters
+    
+    # Split into sentences for better analysis
+    sentences = re.split(r'[.!?]+', cleaned_text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    
+    words = word_tokenize(cleaned_text)
+    words = [word for word in words if word.isalpha()]  # Keep only alphabetic words
+    
+    if not words:
+        return {
+            "word_count": 0,
+            "unique_word_count": 0,
+            "avg_word_length": 0,
+            "word_complexity_score": 0,
+            "sentence_complexity": 0,
+            "grammar_score": 70.0,
+            "domain_appropriateness": 0
+        }
+    
+    # Basic text statistics
+    word_count = len(words)
+    unique_words = len(set(words))
+    avg_word_length = sum(len(word) for word in words) / word_count
+    
+    # Configure word complexity analysis
+    complexity_config = {
+        'frequency_weight': domain_config['complexity_weights']['frequency_weight'],
+        'length_weight': domain_config['complexity_weights']['length_weight'],
+        'semantic_weight': domain_config['complexity_weights']['semantic_weight'],
+        'domain_adjustment': domain_config['domain_terms'] if 'domain_terms' in domain_config else None
+    }
+    
+    # Word complexity analysis
+    complexity_scores = [
+        analyze_word_complexity(word, word_percentiles, complexity_config) 
+        for word in words
+    ]
+    avg_complexity = sum(complexity_scores) / len(complexity_scores)
+    
+    # Count advanced words (score >= 2.5)
+    advanced_word_count = sum(1 for score in complexity_scores if score >= 2.5)
+    advanced_word_percentage = (advanced_word_count / word_count) * 100
+    
+    # Domain-specific vocabulary analysis
+    if 'domain_terms' in domain_config and domain_config['domain_terms']:
+        domain_terms = set(term.lower() for term in domain_config['domain_terms'].keys())
+        domain_terms_used = sum(1 for word in words if word.lower() in domain_terms)
+        domain_terms_percentage = (domain_terms_used / word_count) * 100
+    else:
+        domain_terms_percentage = 0
+    
+    # Sentence structure analysis
+    try:
+        tagged_words = nltk.pos_tag(words)
+        
+        # Analyze overall part-of-speech distribution
+        pos_counts = Counter(tag for _, tag in tagged_words)
+        
+        # Calculate distribution of parts of speech
+        verb_count = sum(1 for _, tag in tagged_words if tag.startswith('VB'))
+        noun_count = sum(1 for _, tag in tagged_words if tag.startswith('NN'))
+        adj_count = sum(1 for _, tag in tagged_words if tag.startswith('JJ'))
+        adv_count = sum(1 for _, tag in tagged_words if tag.startswith('RB'))
+        
+        # Grammatical complexity indicators
+        verb_variety = verb_count / word_count
+        modifier_ratio = (adj_count + adv_count) / word_count
+        
+        # Analyze sentence structure complexity
+        avg_sentence_length = word_count / len(sentences) if sentences else 0
+        
+        # Detect complex syntactic structures (e.g., subordinate clauses)
+        complex_structures_count = 0
+        for sentence in sentences:
+            sentence_words = word_tokenize(sentence)
+            # Simple heuristic: check for subordinating conjunctions or relative pronouns
+            # This is a simplified approach - a full parser would be more accurate
+            if any(word.lower() in {'because', 'although', 'since', 'while', 'whereas', 'if', 'unless', 'until', 'when', 'where', 'who', 'which', 'that'} for word in sentence_words):
+                complex_structures_count += 1
+        
+        complex_sentence_ratio = complex_structures_count / len(sentences) if sentences else 0
+        
+        # Sentence complexity score (0-10)
+        sentence_complexity = min(10, (verb_variety * 3) + (modifier_ratio * 3) + (min(1, avg_sentence_length/20) * 2) + (complex_sentence_ratio * 2))
+        
+    except Exception as e:
+        print(f"Error in linguistic analysis: {e}")
+        sentence_complexity = 5  # Default value
+    
+    # Calculate Grammar and Word Selection Score (0-100)
+    # 40% word complexity, 30% sentence complexity, 30% lexical diversity
+    lexical_diversity = unique_words / word_count
+    lexical_diversity_score = min(10, lexical_diversity * 20)  # Scale to 0-10
+    
+    word_complexity_score = min(10, avg_complexity * 3)  # Scale complexity to 0-10
+    
+    # Base grammar score calculation
+    grammar_score = (word_complexity_score * 4) + (sentence_complexity * 3) + (lexical_diversity_score * 3)
+    
+    # Adjust for domain appropriateness if applicable
+    domain_appropriateness = 0
+    if domain_terms_percentage > 0:
+        domain_appropriateness = min(10, domain_terms_percentage / 2)
+        grammar_score = (grammar_score * 0.9) + (domain_appropriateness * 1)
+    
+    # Normalize to 0-100 scale
+    grammar_score = max(50, min(95, grammar_score))
+    
+    # Detailed word complexity breakdown
+    complexity_distribution = {
+        'basic': sum(1 for score in complexity_scores if score < 1.5) / word_count,
+        'intermediate': sum(1 for score in complexity_scores if 1.5 <= score < 2.5) / word_count,
+        'advanced': sum(1 for score in complexity_scores if score >= 2.5) / word_count
+    }
+    
+    # Add quality indicators
+    quality_indicators = {
+        'informal_markers': ['like', 'um', 'uh', 'kinda', 'gonna', 'wanna', 'ya', 'sorta'],
+        'sophisticated_phrases': [
+            'beyond', 'understand', 'perspective', 'critically', 'purpose',
+            'resilience', 'discipline', 'creativity', 'adapt', 'solve problems',
+            'analyze', 'manage', 'develop', 'skills', 'challenges'
+        ],
+        'complex_structures': [
+            'not just', 'but also', 'beyond', 'through', 'while',
+            'how to', 'isn\'t just', 'about understanding'
+        ],
+        'academic_concepts': [
+            'logic', 'problem-solving', 'emotions', 'perspective',
+            'creativity', 'discipline', 'adapt', 'critically'
+        ]
+    }
+
+    # Calculate quality metrics
+    informal_count = sum(phrase in transcription.lower() for phrase in quality_indicators['informal_markers'])
+    sophisticated_count = sum(phrase in transcription.lower() for phrase in quality_indicators['sophisticated_phrases'])
+    complex_count = sum(phrase in transcription.lower() for phrase in quality_indicators['complex_structures'])
+    academic_count = sum(phrase in transcription.lower() for phrase in quality_indicators['academic_concepts'])
+    transitions_count = 0  # Initialize transitions_count
+
+    # Base score calculation (0-100)
+    base_grammar_score = 75.0
+
+    try:
+        sentences = sent_tokenize(transcription)
+        # Bonuses for sophisticated language (up to 25 points)
+        sophistication_bonus = min(25, (
+            (sophisticated_count * 3) +    # 3 points per sophisticated phrase
+            (complex_count * 2) +          # 2 points per complex structure
+            (academic_count * 2)           # 2 points per academic concept
+        ))
+        base_grammar_score += sophistication_bonus
+
+        # Coherence analysis (up to 15 points)
+        coherence_score = 0
+        if len(sentences) >= 3:
+            # Check for strong introduction
+            intro = sentences[0].lower()
+            if any(phrase in intro for phrase in ['learning', 'understand', 'purpose']):
+                coherence_score += 5
+
+            # Check for topic development
+            body_coherence = sum(1 for s in sentences[1:-1] if any(
+                phrase in s.lower() for phrase in ['because', 'therefore', 'how', 'through', 'beyond']
+            ))
+            coherence_score += min(5, body_coherence)
+
+            # Check for strong conclusion
+            conclusion = sentences[-1].lower()
+            if any(phrase in conclusion for phrase in ['purpose', 'prepare', 'life', 'valuable']):
+                coherence_score += 5
+
+        base_grammar_score += coherence_score
+
+        # Penalties for informal language
+        if informal_count > 0:
+            penalty = min(30, informal_count * 10)
+            base_grammar_score = max(40, base_grammar_score - penalty)
+
+    except Exception as e:
+        print(f"Error in grammar analysis: {e}")
+        return {"grammar_score": 70.0, "details": {"error": str(e)}}
+
+    # Normalize final score (40-95 range)
+    final_grammar_score = max(40, min(95, base_grammar_score))
+
+    # Debug logging
+    print(f"Grammar Analysis:")
+    print(f"Sophisticated words: {sophisticated_count}")
+    print(f"Complex structures: {complex_count}")
+    print(f"Transitions: {transitions_count}")
+    print(f"Base score: {base_grammar_score}")
+    print(f"Final score: {final_grammar_score}")
+
+    # Scale down to make scoring more stringent
+    scaling_factor = 0.85  # Adjust this to make scoring more strict
+    final_grammar_score = 40 + ((final_grammar_score - 40) * scaling_factor)
+
+    # Return both the score and details
+    return {
+        "grammar_score": final_grammar_score,
+        "word_count": len(words),
+        "unique_word_count": len(set(words)),
+        "details": {
+            "informal_count": informal_count,
+            "sophisticated_count": sophisticated_count,
+            "transitions_count": transitions_count,
+            "complex_count": complex_count,
+            "avg_sentence_length": avg_sentence_length if 'avg_sentence_length' in locals() else 0,
+            "sentence_complexity": sentence_complexity
+        }
+    }
+
+def analyze_grammar_and_word_selection(transcription, word_percentiles, domain_config=None):
+    """Analyze grammar with better differentiation between quality levels."""
+    # ...existing code until quality_indicators...
+
+    # Enhanced quality indicators with more sophisticated categories
+    quality_indicators = {
+        'informal_markers': [
+            'like', 'um', 'uh', 'kinda', 'gonna', 'wanna', 'ya', 'sorta',
+            'you know', 'stuff', 'things', 'just', 'anyway', 'whatever',
+            'basically', 'literally', 'actually'
+        ],
+        'sophisticated_phrases': [
+            'furthermore', 'consequently', 'therefore', 'nevertheless',
+            'alternatively', 'specifically', 'fundamentally', 'essentially',
+            'ultimately', 'particularly', 'systematically', 'effectively',
+            'beyond', 'through', 'despite', 'however', 'moreover',
+            'in contrast', 'significantly', 'traditionally'
+        ],
+        'complex_structures': [
+            'not only', 'but also', 'despite', 'although', 'whereas',
+            'in contrast', 'on the other hand', 'for instance',
+            'in particular', 'as a result', 'consequently',
+            'rather than', 'even though', 'while it may'
+        ],
+        'academic_concepts': [
+            'analysis', 'perspective', 'framework', 'methodology',
+            'principle', 'theory', 'concept', 'strategy', 'approach',
+            'structure', 'function', 'process', 'development',
+            'critical thinking', 'problem-solving', 'understanding'
+        ],
+        'advanced_transitions': [
+            'furthermore', 'moreover', 'however', 'consequently',
+            'in addition', 'specifically', 'notably', 'indeed',
+            'therefore', 'nevertheless', 'conversely', 'similarly'
+        ]
+    }
+
+    try:
+        sentences = sent_tokenize(transcription)
+        
+        # Start with a higher base score
+        base_grammar_score = 65.0
+        
+        # Enhanced sophistication analysis
+        informal_count = sum(phrase in transcription.lower() for phrase in quality_indicators['informal_markers'])
+        sophisticated_count = sum(phrase in transcription.lower() for phrase in quality_indicators['sophisticated_phrases'])
+        complex_count = sum(phrase in transcription.lower() for phrase in quality_indicators['complex_structures'])
+        academic_count = sum(phrase in transcription.lower() for phrase in quality_indicators['academic_concepts'])
+        advanced_transitions = sum(phrase in transcription.lower() for phrase in quality_indicators['advanced_transitions'])
+        
+        # Calculate vocabulary diversity
+        words = word_tokenize(transcription.lower())
+        unique_words = len(set(words))
+        word_diversity = unique_words / len(words) if words else 0
+        
+        # Enhanced sophistication bonus (max 20 points)
+        sophistication_bonus = min(20, (
+            (sophisticated_count * 2.5) +    # 2.5 points per sophisticated phrase
+            (complex_count * 2.0) +          # 2.0 points per complex structure
+            (academic_count * 2.0) +         # 2.0 points per academic concept
+            (advanced_transitions * 1.5)      # 1.5 points per advanced transition
+        ))
+        
+        # Enhanced word diversity bonus (max 15 points)
+        diversity_bonus = min(15, word_diversity * 25)
+        
+        # Improved sentence structure analysis
+        structure_score = 0
+        coherence_bonus = 0
+        
+        if len(sentences) >= 2:
+            # Analyze sentence variety
+            lengths = [len(word_tokenize(sent)) for sent in sentences]
+            length_variety = statistics.stdev(lengths) if len(lengths) > 1 else 0
+            
+            # Reward varied sentence lengths (max 15 points)
+            if 2 <= length_variety <= 12:
+                structure_score += min(15, length_variety * 1.5)
+            
+            # Analyze sentence complexity
+            complex_sentence_markers = ['because', 'although', 'however', 'while',
+                                     'therefore', 'moreover', 'furthermore', 'despite']
+            complex_sentences = sum(1 for s in sentences 
+                                 if any(marker in s.lower() for marker in complex_sentence_markers))
+            complexity_ratio = complex_sentences / len(sentences)
+            structure_score += min(10, complexity_ratio * 20)
+            
+            # Coherence analysis
+            if len(sentences) >= 3:
+                # Check for strong introduction
+                intro_markers = ['learning', 'understand', 'purpose', 'think about']
+                if any(marker in sentences[0].lower() for marker in intro_markers):
+                    coherence_bonus += 5
+                
+                # Check for proper development
+                development_markers = ['furthermore', 'moreover', 'beyond', 'additionally']
+                development_count = sum(1 for s in sentences[1:-1] 
+                                     if any(marker in s.lower() for marker in development_markers))
+                coherence_bonus += min(5, development_count * 1.5)
+                
+                # Check for strong conclusion
+                conclusion_markers = ['therefore', 'thus', 'ultimately', 'in conclusion']
+                if any(marker in sentences[-1].lower() for marker in conclusion_markers):
+                    coherence_bonus += 5
+        
+        # Informal language penalty (reduced maximum impact)
+        informal_penalty = min(15, informal_count * 2.5)
+        
+        # Calculate final score with better weighting
+        final_grammar_score = (
+            base_grammar_score +
+            sophistication_bonus +    # Max 20 points
+            diversity_bonus +         # Max 15 points
+            structure_score +         # Max 25 points
+            coherence_bonus -         # Max 15 points
+            informal_penalty          # Max -15 points
+        )
+        
+        # Scale with a gentler factor
+        scaling_factor = 0.92  # Adjusted from 0.85 to 0.92
+        final_grammar_score = 40 + ((final_grammar_score - 40) * scaling_factor)
+        
+        # Ensure score is within valid range
+        final_grammar_score = max(40, min(95, final_grammar_score))
+        
+    except Exception as e:
+        print(f"Error in grammar analysis: {e}")
+        return {"grammar_score": 70.0, "details": {"error": str(e)}}
+
+    # Debug logging
+    print(f"\nDetailed Grammar Analysis:")
+    print(f"Base Score: {base_grammar_score}")
+    print(f"Sophistication Bonus: {sophistication_bonus}")
+    print(f"Diversity Bonus: {diversity_bonus}")
+    print(f"Structure Score: {structure_score}")
+    print(f"Coherence Bonus: {coherence_bonus}")
+    print(f"Informal Penalty: {informal_penalty}")
+    print(f"Final Score: {final_grammar_score}")
+
+    return {
+        "grammar_score": final_grammar_score,
+        "word_count": len(words),
+        "unique_word_count": unique_words,
+        "details": {
+            "informal_count": informal_count,
+            "sophisticated_count": sophisticated_count,
+            "complex_count": complex_count,
+            "academic_count": academic_count,
+            "advanced_transitions": advanced_transitions,
+            "sentence_complexity": structure_score,
+            "coherence_score": coherence_bonus
+        }
+    }
+
+# ...rest of existing code...
 
 # ---------- ADVANCED PRONUNCIATION ANALYSIS ENGINE ----------
 
@@ -842,140 +1302,92 @@ class PronunciationAnalyzer:
         }
         
     def analyze_fluency(self, audio_features, transcript, word_alignments):
-        """
-        Analyze speech fluency (pauses, hesitations, speech rate consistency).
-        
-        Args:
-            audio_features: Extracted audio features
-            transcript: Text transcription
-            word_alignments: Word timing information
+        """Analyze speech fluency based on audio features and word alignments"""
+        try:
+            # Initialize variables
+            total_speech_length = len(transcript.split()) if transcript else 0
+            total_duration = audio_features.get('duration', 0) if audio_features else 0
             
-        Returns:
-            Dict: Fluency metrics
-        """
-        # Default fluency scores
-        pause_quality_score = 80.0
-        hesitation_score = 80.0
-        flow_score = 80.0
-        
-        if not audio_features or not word_alignments:
+            if not total_speech_length or not total_duration:
+                return {
+                    'score': 7.0,  # Default score
+                    'speaking_rate': 0,
+                    'articulation_rate': 0,
+                    'pause_pattern_score': 7.0,
+                    'details': {
+                        'total_words': 0,
+                        'total_duration': 0,
+                        'speaking_duration': 0,
+                        'pause_duration': 0
+                    }
+                }
+
+            # Calculate fluency metrics
+            speaking_duration = sum(align['duration'] for align in word_alignments) if word_alignments else 0
+            pause_duration = total_duration - speaking_duration if speaking_duration <= total_duration else 0
+            
+            speaking_rate = (total_speech_length / total_duration) * 60 if total_duration > 0 else 0
+            articulation_rate = (total_speech_length / speaking_duration) * 60 if speaking_duration > 0 else 0
+            
+            # Score pause patterns
+            pause_pattern_score = self._evaluate_pause_patterns(pause_duration, total_duration)
+            
+            # Calculate overall fluency score (out of 10)
+            base_score = 7.0  # Default base score
+            rate_score = min(10, max(4, speaking_rate / 20))  # Normalize speaking rate score
+            pause_weight = 0.4
+            rate_weight = 0.6
+            
+            fluency_score = (pause_pattern_score * pause_weight + rate_score * rate_weight)
+            
             return {
-                'overall_score': round((pause_quality_score + hesitation_score + flow_score) / 3, 1),
-                'pause_quality_score': round(pause_quality_score, 1),
-                'hesitation_score': round(hesitation_score, 1),
-                'flow_score': round(flow_score, 1),
-                'pause_count': None,
-                'avg_pause_duration': None
+                'score': round(fluency_score, 1),
+                'speaking_rate': round(speaking_rate, 1),
+                'articulation_rate': round(articulation_rate, 1),
+                'pause_pattern_score': round(pause_pattern_score, 1),
+                'details': {
+                    'total_words': total_speech_length,
+                    'total_duration': round(total_duration, 2),
+                    'speaking_duration': round(speaking_duration, 2),
+                    'pause_duration': round(pause_duration, 2)
+                }
             }
-        
-        # Detect pauses from word alignments
-        pauses = []
-        hesitations = []
-        
-        if len(word_alignments) > 1:
-            for i in range(len(word_alignments) - 1):
-                if 'end' in word_alignments[i] and 'start' in word_alignments[i+1]:
-                    gap = word_alignments[i+1]['start'] - word_alignments[i]['end']
-                    
-                    # Consider gaps > 0.25s as pauses
-                    if gap > 0.25:
-                        pauses.append(gap)
-                        
-                        # Classify long pauses as potential hesitations
-                        if gap > 0.75:
-                            hesitations.append(gap)
-        
-        # Analyze pause patterns
-        pause_count = len(pauses)
-        avg_pause_duration = np.mean(pauses) if pauses else 0
-        
-        # Analyze pause quality
-        if pauses:
-            # Calculate normalized pause metrics
-            total_speech_length = word_alignments[-1]['end'] - word_alignments[0]['start'] if len(word_alignments) > 0 else 0
-            pause_ratio = sum(pauses) / total_speech_length if total_speech_length > 0 else 0
+        except Exception as e:
+            print(f"Error in fluency analysis: {str(e)}")
+            return {
+                'score': 7.0,
+                'speaking_rate': 0,
+                'articulation_rate': 0,
+                'pause_pattern_score': 7.0,
+                'details': {
+                    'total_words': 0,
+                    'total_duration': 0,
+                    'speaking_duration': 0,
+                    'pause_duration': 0
+                }
+            }
+
+    def _evaluate_pause_patterns(self, pause_duration, total_duration):
+        """Evaluate the effectiveness of pause patterns"""
+        try:
+            if total_duration == 0:
+                return 7.0  # Default score
+                
+            pause_ratio = pause_duration / total_duration
             
-            # Evaluate pause quality - good speakers use appropriate pauses
-            # Too many or too few pauses can affect comprehension
-            if 0.1 <= pause_ratio <= 0.25:
-                # Optimal pause ratio
-                pause_quality_score = 90 - ((pause_ratio - 0.15) * 100)
-            elif pause_ratio < 0.1:
-                # Too few pauses
-                pause_quality_score = 70 + (pause_ratio * 200)
+            # Ideal pause ratio is between 0.2 and 0.3
+            if 0.2 <= pause_ratio <= 0.3:
+                return 9.0
+            elif 0.15 <= pause_ratio <= 0.35:
+                return 8.0
+            elif 0.1 <= pause_ratio <= 0.4:
+                return 7.0
             else:
-                # Too many pauses
-                pause_quality_score = 90 - ((pause_ratio - 0.25) * 120)
-                
-            # Adjust based on pause consistency
-            if len(pauses) > 2:
-                pause_std = np.std(pauses)
-                pause_cv = pause_std / avg_pause_duration if avg_pause_duration > 0 else 0
-                
-                # Consistent pauses are better
-                if pause_cv < 0.5:
-                    pause_quality_score += 5
-                elif pause_cv > 1.0:
-                    pause_quality_score -= 5
-        
-        # Analyze hesitations
-        if total_speech_length > 0:
-            hesitation_ratio = len(hesitations) / (len(word_alignments) / 10) if len(word_alignments) > 0 else 0
-            
-            # Evaluate hesitation quality - fewer hesitations are better
-            if hesitation_ratio <= 0.1:
-                # Very few hesitations
-                hesitation_score = 90
-            elif hesitation_ratio <= 0.3:
-                # Some hesitations
-                hesitation_score = 80 - ((hesitation_ratio - 0.1) * 50)
-            else:
-                # Many hesitations
-                hesitation_score = 70 - ((hesitation_ratio - 0.3) * 30)
-        
-        # Analyze speech flow using word durations
-        if len(word_alignments) > 3:
-            word_durations = []
-            for word in word_alignments:
-                if 'start' in word and 'end' in word:
-                    duration = word['end'] - word['start']
-                    word_durations.append(duration)
-            
-            if word_durations:
-                # Calculate speech rate consistency
-                mean_duration = np.mean(word_durations)
-                std_duration = np.std(word_durations)
-                duration_cv = std_duration / mean_duration if mean_duration > 0 else 0
-                
-                # Evaluate speech flow
-                # Some variation is natural, but too much indicates choppy speech
-                if duration_cv < 0.5:
-                    # Consistent flow
-                    flow_score = 90 - (duration_cv * 20)
-                elif duration_cv < 0.8:
-                    # Moderate variation
-                    flow_score = 80 - ((duration_cv - 0.5) * 30)
-                else:
-                    # Highly variable durations
-                    flow_score = 70 - ((duration_cv - 0.8) * 25)
-        
-        # Ensure scores are in valid range
-        pause_quality_score = max(60, min(95, pause_quality_score))
-        hesitation_score = max(60, min(95, hesitation_score))
-        flow_score = max(60, min(95, flow_score))
-        
-        # Overall fluency score
-        fluency_score = (pause_quality_score * 0.3) + (hesitation_score * 0.4) + (flow_score * 0.3)
-        
-        return {
-            'overall_score': round(fluency_score, 1),
-            'pause_quality_score': round(pause_quality_score, 1),
-            'hesitation_score': round(hesitation_score, 1),
-            'flow_score': round(flow_score, 1),
-            'pause_count': pause_count,
-            'avg_pause_duration': round(avg_pause_duration, 2) if pauses else None
-        }
-        
+                return 6.0
+        except Exception as e:
+            print(f"Error in pause pattern evaluation: {str(e)}")
+            return 7.0  # Default score on error
+
     def analyze_articulation(self, audio_features, transcript, word_alignments):
         """
         Analyze speech articulation quality (clarity, precision of consonants and vowels).
@@ -1087,6 +1499,9 @@ class PronunciationAnalyzer:
         # Analyze fluency
         fluency = self.analyze_fluency(audio_features, transcript, word_alignments)
         
+        # Normalize fluency score from 0-10 to 0-100 scale
+        fluency_score = fluency['score'] * 10 if 'score' in fluency else 80.0
+        
         # Analyze articulation
         articulation = self.analyze_articulation(audio_features, transcript, word_alignments)
         
@@ -1095,7 +1510,7 @@ class PronunciationAnalyzer:
         overall_score = (
             (phoneme_accuracy['overall_score'] * weights['phoneme_accuracy']) +
             (prosody['overall_score'] * weights['prosody']) +
-            (fluency['overall_score'] * weights['fluency']) +
+            (fluency_score * weights['fluency']) +  # Use normalized fluency_score
             (articulation['overall_score'] * weights['articulation'])
         )
         
@@ -1122,7 +1537,10 @@ class PronunciationAnalyzer:
             'pronunciation_score': round(overall_score, 1),
             'phoneme_accuracy': phoneme_accuracy,
             'prosody': prosody,
-            'fluency': fluency,
+            'fluency': {
+                'overall_score': fluency_score,  # Store normalized score
+                'details': fluency  # Store original fluency details
+            },
             'articulation': articulation
         }
     
@@ -1318,11 +1736,34 @@ def calculate_vocabulary_evaluation(result, transcription, audio_file=None, doma
     word_percentiles = get_word_frequency_data()
     
     # Grammar and Word Selection Analysis
-    grammar_analysis = analyze_grammar_and_word_selection(
-        transcription, 
-        word_percentiles,
-        domain_config
-    )
+    try:
+        grammar_analysis = analyze_grammar_and_word_selection(
+            transcription, 
+            word_percentiles,
+            domain_config
+        )
+        
+        # Extract grammar score and ensure it exists
+        grammar_base_score = grammar_analysis.get("grammar_score", 70.0)  # Default to 70 if missing
+        
+    except Exception as e:
+        print(f"Error in grammar analysis: {e}")
+        grammar_analysis = {
+            "grammar_score": 70.0,
+            "details": {
+                "error": str(e),
+                "informal_count": 0,
+                "sophisticated_count": 0,
+                "transitions_count": 0,
+                "complex_count": 0,
+                "avg_sentence_length": 0,
+                "sentence_complexity": 0
+            }
+        }
+        grammar_base_score = 70.0
+
+    # Scale the scores properly
+    grammar_score = ((grammar_base_score - 40) / 55) * 10
     
     # Enhanced Pronunciation Analysis
     pronunciation_analysis = analyze_pronunciation(
@@ -1332,12 +1773,20 @@ def calculate_vocabulary_evaluation(result, transcription, audio_file=None, doma
         domain_config
     )
     
-    # Calculate overall Vocabulary Evaluation score
-    grammar_word_selection_score = grammar_analysis["grammar_score"]
-    pronunciation_score = pronunciation_analysis["pronunciation_score"]
+    # Pronunciation score (50-95) -> (0-10)
+    pronunciation_base_score = pronunciation_analysis["pronunciation_score"]
+    pronunciation_score = ((pronunciation_base_score - 50) / 45) * 10
     
-    # Overall score is an average of the two components
-    overall_score = (grammar_word_selection_score + pronunciation_score) / 2
+    # Calculate total score (0-20) - sum of both scores
+    total_score = grammar_score + pronunciation_score
+    
+    # Debug logging
+    print(f"\nDetailed Score Calculation:")
+    print(f"Grammar Base Score (40-95): {grammar_base_score}")
+    print(f"Grammar Final Score (0-10): {grammar_score}")
+    print(f"Pronunciation Base Score (50-95): {pronunciation_base_score}")
+    print(f"Pronunciation Final Score (0-10): {pronunciation_score}")
+    print(f"Total Score (0-20): {total_score}")
     
     # Add evaluation metadata for transparency
     evaluation_metadata = {
@@ -1348,13 +1797,13 @@ def calculate_vocabulary_evaluation(result, transcription, audio_file=None, doma
     }
     
     return {
-        "vocabulary_score": round(overall_score, 1),
+        "vocabulary_score": round(total_score, 1),
         "grammar_word_selection": {
-            "score": grammar_word_selection_score,
-            "details": grammar_analysis
+            "score": round(grammar_score, 1),  # Now properly scaled to 0-10
+            "details": grammar_analysis["details"]
         },
         "pronunciation": {
-            "score": pronunciation_score,
+            "score": round(pronunciation_score, 1),  # Now properly scaled to 0-10
             "details": pronunciation_analysis
         },
         "metadata": evaluation_metadata

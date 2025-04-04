@@ -25,9 +25,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -41,50 +47,30 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBCNMgl6zrwhjSFKMik6cna5Z2VZoSrWU8',
-    appId: '1:326030694142:web:3d4ac13fc82a144265f7af',
-    messagingSenderId: '326030694142',
-    projectId: 'vocalabs-fac54',
-    authDomain: 'vocalabs-fac54.firebaseapp.com',
-    storageBucket: 'vocalabs-fac54.firebasestorage.app',
-    measurementId: 'G-9K492SCZRD',
+    apiKey: 'AIzaSyAH6GXml1ba4rYGRAeTEvqvmALEH1IKim8',
+    appId: '1:528893558394:web:f860cda372f077259485c3',
+    messagingSenderId: '528893558394',
+    projectId: 'vocallabs-fc7d5',
+    authDomain: 'vocallabs-fc7d5.firebaseapp.com',
+    storageBucket: 'vocallabs-fc7d5.firebasestorage.app',
+    measurementId: 'G-14TKNE3RKF',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA2I3cSTdPgW0bnVEjR-0BN-FNR1QJRfzE',
-    appId: '1:326030694142:android:af5d2d1c0a0f04e365f7af',
-    messagingSenderId: '326030694142',
-    projectId: 'vocalabs-fac54',
-    storageBucket: 'vocalabs-fac54.firebasestorage.app',
+    apiKey: 'AIzaSyAxHpz7LYRjUWQuPT1Fds1zWPchtDOE79c',
+    appId: '1:528893558394:android:0f43ce1c669baa189485c3',
+    messagingSenderId: '528893558394',
+    projectId: 'vocallabs-fc7d5',
+    storageBucket: 'vocallabs-fc7d5.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDNyKEF4loSf-gKqm10b4E1bH6G28eMvtU',
-    appId: '1:326030694142:ios:86cf86aa07a9420e65f7af',
-    messagingSenderId: '326030694142',
-    projectId: 'vocalabs-fac54',
-    storageBucket: 'vocalabs-fac54.firebasestorage.app',
-    iosClientId: '326030694142-q61kqm8ns63jba4p7ipbki3g6duc2fno.apps.googleusercontent.com',
+    apiKey: 'AIzaSyASXGLxtSWwPu4TRqBUrb3edU_J6EouwJg',
+    appId: '1:528893558394:ios:40510023632bfc6a9485c3',
+    messagingSenderId: '528893558394',
+    projectId: 'vocallabs-fc7d5',
+    storageBucket: 'vocallabs-fc7d5.firebasestorage.app',
     iosBundleId: 'com.example.vocallabsFlutterApp',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDNyKEF4loSf-gKqm10b4E1bH6G28eMvtU',
-    appId: '1:326030694142:ios:86cf86aa07a9420e65f7af',
-    messagingSenderId: '326030694142',
-    projectId: 'vocalabs-fac54',
-    storageBucket: 'vocalabs-fac54.firebasestorage.app',
-    iosClientId: '326030694142-q61kqm8ns63jba4p7ipbki3g6duc2fno.apps.googleusercontent.com',
-    iosBundleId: 'com.example.vocallabsFlutterApp',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBCNMgl6zrwhjSFKMik6cna5Z2VZoSrWU8',
-    appId: '1:326030694142:web:a90f293d3252d6aa65f7af',
-    messagingSenderId: '326030694142',
-    projectId: 'vocalabs-fac54',
-    authDomain: 'vocalabs-fac54.firebaseapp.com',
-    storageBucket: 'vocalabs-fac54.firebasestorage.app',
-    measurementId: 'G-V697YCHDLN',
-  );
 }

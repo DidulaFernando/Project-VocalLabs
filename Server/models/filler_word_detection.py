@@ -2,7 +2,8 @@ import re
 
 FILLER_WORDS = {
     'um', 'uh', 'ah', 'er', 'like', 'you know', 'sort of', 'kind of', 'basically',
-    'literally', 'actually', 'hmm', 'huh', 'yeah', 'right', 'okay', 'well'
+    'literally', 'actually', 'hmm', 'huh', 'yeah', 'right', 'okay', 'well',
+    'kinda', 'gonna', 'wanna', 'i guess', 'so yeah'
 }
 
 def clean_word(word):
@@ -11,12 +12,15 @@ def clean_word(word):
     return cleaned
 
 def analyze_filler_words(result):
+    """Analyze filler words with much stricter penalties."""
     total_filler_words = 0
     filler_words_per_minute = {}
+    total_words = 0
     
     # Process each word with its timestamp
     for segment in result['segments']:
         for word_info in segment.get('words', []):
+            total_words += 1
             word = clean_word(word_info['word'])
             
             if word in FILLER_WORDS:
@@ -28,15 +32,43 @@ def analyze_filler_words(result):
                 if minute not in filler_words_per_minute:
                     filler_words_per_minute[minute] = 0
                 filler_words_per_minute[minute] += 1
+
+    # Calculate filler word density (percentage of filler words)
+    filler_density = total_filler_words / total_words if total_words > 0 else 0
     
-    # Format the per-minute breakdown as a simple string
+    # Format the per-minute breakdown
     minute_breakdown = {}
     for minute, count in sorted(filler_words_per_minute.items()):
         minute_breakdown[f"Minute {minute + 1}"] = count
+
+    # Much stricter scoring system
+    score = 10.0  # Start with maximum score
     
+    # Density-based penalties (much harsher)
+    if filler_density >= 0.15:  # More than 15% fillers
+        score = 0.0  # Automatic zero
+    elif filler_density >= 0.10:  # 10-15% fillers
+        score = 2.0
+    elif filler_density >= 0.05:  # 5-10% fillers
+        score = 4.0
+    else:
+        # For lower densities, apply graduated penalties
+        score = max(0, 10 - (filler_density * 100))
+    
+    # Additional per-minute penalties
+    for count in filler_words_per_minute.values():
+        if count > 6:  # More than 6 fillers in any minute
+            score = max(0, score - 4)  # Harsh penalty
+        elif count > 4:  # 4-6 fillers in a minute
+            score = max(0, score - 3)
+        elif count > 2:  # 2-4 fillers in a minute
+            score = max(0, score - 2)
+
     return {
         'Total Filler Words': total_filler_words,
-        'Filler Words Per Minute': minute_breakdown if minute_breakdown else "No filler words detected"
+        'Filler Words Per Minute': minute_breakdown,
+        'Filler Density': filler_density,
+        'Score': round(score, 1)
     }
 
 def analyze_mid_sentence_pauses(transcription):

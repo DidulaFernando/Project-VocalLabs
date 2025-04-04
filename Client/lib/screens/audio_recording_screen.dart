@@ -162,7 +162,17 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       }
 
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/playback', arguments: bytes);
+        // Pass additional required fields along with the audio bytes
+        Navigator.pushReplacementNamed(
+          context, 
+          '/playback',
+          arguments: {
+            'fileBytes': bytes,
+            'topic': 'Untitled Speech', // Default topic
+            'speechType': 'Prepared Speech', // Default type
+            'duration': '5–7 minutes', // Default duration
+          },
+        );
       }
     } catch (e) {
       debugPrint('Error processing recording: $e');

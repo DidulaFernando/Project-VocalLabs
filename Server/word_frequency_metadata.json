@@ -1,0 +1,35 @@
+{
+  "created": "2025-03-22 19:25:52",
+  "corpora_used": [
+    "brown",
+    "webtext",
+    "gutenberg"
+  ],
+  "total_unique_words": 66957,
+  "corpus_stats": {
+    "brown": {
+      "unique_words": 40208,
+      "words_in_percentiles": {
+        "common (75-100)": 14612,
+        "moderate (25-75)": 23558,
+        "rare (0-25)": 2038
+      }
+    },
+    "webtext": {
+      "unique_words": 16418,
+      "words_in_percentiles": {
+        "common (75-100)": 8397,
+        "moderate (25-75)": 4405,
+        "rare (0-25)": 3616
+      }
+    },
+    "gutenberg": {
+      "unique_words": 41462,
+      "words_in_percentiles": {
+        "common (75-100)": 14840,
+        "moderate (25-75)": 15536,
+        "rare (0-25)": 11086
+      }
+    }
+  }
+}

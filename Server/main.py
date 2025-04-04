@@ -1,19 +1,24 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel  # Add this import
+from pydantic import BaseModel
 import os
 from models.transcript import transcribe_audio, process_transcription
 from models.filler_word_detection import analyze_filler_words, analyze_mid_sentence_pauses
 from models.proficiency_evaluation import calculate_proficiency_score
 from models.voice_modulation import analyze_voice_modulation
-from models.speech_development import evaluate_speech_development  # Add this line
-from models.user import User, SessionLocal, engine
-from sqlalchemy.orm import Session
+from models.speech_development import evaluate_speech_development
 from passlib.context import CryptContext
 import whisper
 import logging
 from nltk_download import download_nltk_resources  # Import the utility function
+from firebase_config import db
+from firebase_admin import firestore
+from firebase_admin import storage
+import json
+from fastapi.encoders import jsonable_encoder
 from models.speech_effectiveness import evaluate_speech_effectiveness  # Add this import
+from models.vocabulary_evaluation import evaluate_speech  # Add this import
 
 app = FastAPI()
 
@@ -36,18 +41,10 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Load your transcription model here
-model = whisper.load_model("medium")
+model = whisper.load_model("base")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # Pydantic models
 class UserCreate(BaseModel):
@@ -61,24 +58,31 @@ class UserLogin(BaseModel):
 
 # Create user endpoint
 @app.post("/register/")
-async def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
+async def register_user(user: UserCreate):
+    users_ref = db.collection("users")
+    existing_user = users_ref.where("email", "==", user.email).get()
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = pwd_context.hash(user.password)
-    db_user = User(name=user.name, email=user.email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+
+    new_user = {
+        "name": user.name,
+        "email": user.email,
+        "createdAt": firestore.SERVER_TIMESTAMP,
+    }
+    users_ref.add(new_user)
+
+    return {"message": "User registered successfully"}
 
 # Login user endpoint
 @app.post("/login/")
-async def login_user(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if not db_user or not pwd_context.verify(user.password, db_user.hashed_password):
+async def login_user(user: UserLogin):
+    users_ref = db.collection("users")
+    user_docs = users_ref.where("email", "==", user.email).get()
+    if not user_docs:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    return {"message": "Login successful", "name": db_user.name}
+
+    user_data = user_docs[0].to_dict()
+    return {"message": "Login successful", "name": user_data["name"]}
 
 def generate_timing_feedback(actual_duration_str, expected_duration, speech_type):
     """Generate feedback about timing compliance based on actual vs expected duration"""
@@ -144,174 +148,203 @@ def generate_timing_feedback(actual_duration_str, expected_duration, speech_type
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...), 
-                      topic: str = Form(None),  # Topic received here
+                      topic: str = Form(None),
                       speech_type: str = Form(None), 
                       expected_duration: str = Form(None), 
-                      actual_duration: str = Form(None)):
-    file_location = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
+                      actual_duration: str = Form(None), 
+                      user_id: str = Form(...)):
     logging.info(f"Received file: {file.filename}")
-    logging.info(f"Speech details - Topic: {topic}, Type: {speech_type}, Expected duration: {expected_duration}, Actual duration: {actual_duration}")
-
-    # Transcribe the audio file
-    result = transcribe_audio(model, file_location)
-    transcription, pause_duration = process_transcription(result)
-    filler_analysis = analyze_filler_words(result)
-    pause_analysis = analyze_mid_sentence_pauses(transcription)
+    logging.info(f"Topic: {topic}, Speech Type: {speech_type}, Expected Duration: {expected_duration}, Actual Duration: {actual_duration}, User ID: {user_id}")
     
-    # Convert actual_duration string (MM:SS) to seconds
-    actual_duration_seconds = 0
+    if not topic or not speech_type or not expected_duration or not actual_duration or not user_id:
+        raise HTTPException(status_code=422, detail="Missing required fields")
+    
+    # Save file locally first
+    file_location = os.path.join(UPLOAD_DIR, file.filename)
     try:
-        parts = actual_duration.split(':')
-        actual_duration_seconds = int(parts[0]) * 60 + int(parts[1])
-    except (ValueError, IndexError, AttributeError):
-        logging.warning("Could not parse actual_duration, using 0 seconds")
-    
-    # Pass speech details to proficiency evaluation
-    proficiency_scores = calculate_proficiency_score(
-        filler_analysis, 
-        pause_analysis,
-        actual_duration,
-        expected_duration
-    )
-    
-    # Analyze voice modulation
-    modulation_analysis = analyze_voice_modulation(file_location)
-    
-    # New: Analyze speech development
-    speech_development = evaluate_speech_development(
-        transcription,
-        actual_duration_seconds,
-        expected_duration
-    )
-    
-    # Add speech effectiveness evaluation with proper error handling
-    try:
+        # Read the file content
+        file_content = await file.read()
+        
+        # Save locally
+        with open(file_location, "wb") as f:
+            f.write(file_content)
+        
+        # Get user data from Firestore
+        user_ref = db.collection("users").document(user_id)
+        user_data = user_ref.get().to_dict()
+        user_name = user_data.get("name", "unknown_user")
+        
+        # Get the number of existing speeches for the user
+        speeches_ref = user_ref.collection("speeches")
+        speech_count = len(speeches_ref.get())
+        
+        # Create a unique filename
+        unique_filename = f"{user_name}_{topic}_{speech_count + 1}.wav"
+        
+        # Upload to Firebase Storage
+        bucket = storage.bucket()
+        blob = bucket.blob(f"audio/{user_id}/{unique_filename}")
+        
+        # Upload from local file
+        blob.upload_from_filename(file_location)
+        blob.make_public()
+        audio_url = blob.public_url
+        logging.info(f"File uploaded to Firebase Storage: {audio_url}")
+        
+        # Process the audio file
+        result = transcribe_audio(model, file_location)
+        if not result:
+            raise HTTPException(status_code=500, detail="Transcription failed")
+            
+        transcription, pause_duration = process_transcription(result)
+        filler_analysis = analyze_filler_words(result)
+        pause_analysis = analyze_mid_sentence_pauses(transcription)
+        
+        # Convert actual_duration
+        actual_duration_seconds = 0
+        try:
+            parts = actual_duration.split(':')
+            actual_duration_seconds = int(parts[0]) * 60 + int(parts[1])
+        except:
+            logging.warning("Could not parse actual_duration")
+        
+        # Get all analysis results
+        proficiency_scores = calculate_proficiency_score(
+            filler_analysis, 
+            pause_analysis,
+            actual_duration,
+            expected_duration
+        )
+        
+        modulation_analysis = analyze_voice_modulation(file_location)
+        speech_development = evaluate_speech_development(
+            transcription,
+            actual_duration_seconds,
+            expected_duration
+        )
+        
         speech_effectiveness = evaluate_speech_effectiveness(
             transcription, 
-            topic,
-            expected_duration or "5-7 minutes",  # Use provided duration or default
-            actual_duration_seconds  # Pass actual duration in seconds
+            topic or "General Speech",
+            expected_duration or "5-7 minutes",
+            actual_duration_seconds
         )
-        logging.info("\nSpeech Effectiveness Analysis:")
-        logging.info(f"Total Score: {speech_effectiveness['total_score']}/20")
-        logging.info(f"Relevance Score: {speech_effectiveness['relevance_score']}/10")
-        logging.info(f"Purpose Score: {speech_effectiveness['purpose_score']}/10")
-        logging.info(f"Details: {speech_effectiveness['details']}")
-    except Exception as e:
-        logging.error(f"Error in speech effectiveness evaluation: {str(e)}")
-        speech_effectiveness = {
-            "total_score": 0,
-            "relevance_score": 0,
-            "purpose_score": 0,
-            "details": {},
-            "feedback": ["Error analyzing speech effectiveness"]
-        }
-    
-    # Log transcription and evaluation information
-    logging.info(f"Transcription: {transcription}")
-    logging.info(f"Total pause duration: {pause_duration} seconds")
-    logging.info("\nPause Analysis (Mid-sentence):")
-    for category, count in pause_analysis.items():
-        logging.info(f"{category}: {count}")
-    logging.info("\nFiller Word Analysis:")
-    for key, value in filler_analysis.items():
-        logging.info(f"{key}: {value}")
-    logging.info("\nProficiency Evaluation:")
-    logging.info(f"Final Score: {proficiency_scores['final_score']}/20")
-    logging.info(f"Filler Word Score: {proficiency_scores['filler_score']}/10")
-    logging.info(f"Pause Score: {proficiency_scores['pause_score']}/10")
-    
-    # Add timing score to logs
-    logging.info(f"Timing Score: {proficiency_scores.get('timing_score', 'N/A')}/10")
-    
-    # Log voice modulation scores
-    logging.info("\nVoice Modulation Analysis:")
-    logging.info(f"Total Voice Modulation Score: {modulation_analysis['scores']['total_score']}/20")
-    logging.info(f"Pitch and Volume Score: {modulation_analysis['scores']['pitch_and_volume_score']}/10")
-    logging.info(f"Emphasis Score: {modulation_analysis['scores']['emphasis_score']}/10")
+        
+        vocabulary_evaluation = evaluate_speech(result, transcription, file_location, "general")
+        timing_feedback = generate_timing_feedback(actual_duration, expected_duration, speech_type)
+        
+        # Generate speech type feedback
+        speech_type_feedback = ""
+        if speech_type == "Prepared Speech":
+            speech_type_feedback = "Prepared speeches should be well-structured with clear introduction, body, and conclusion."
+        elif speech_type == "Impromptu Speech":
+            speech_type_feedback = "Impromptu speeches show your ability to think quickly and should be coherent and relevant."
+        else:
+            speech_type_feedback = "Speech type feedback is unavailable."
+        
+        # Clean up local file
+        if os.path.exists(file_location):
+            os.remove(file_location)
+        
+        # Store results in Firestore
+        try:
+            # Extract scores correctly from individual analysis results
+            speech_development_score = (speech_development.get("structure", {}).get("score", 0) + 
+                                     speech_development.get("time_utilization", {}).get("score", 0))
+            
+            vocabulary_score = vocabulary_evaluation.get("vocabulary_score", 0)
+            effectiveness_score = speech_effectiveness.get("total_score", 0)
+            voice_analysis_score = modulation_analysis["scores"].get("total_score", 0)
+            proficiency_score = proficiency_scores.get("final_score", 0)
 
-    # Log speech development scores
-    logging.info("\nSpeech Development Analysis:")
-    logging.info(f"Overall Development Score: {speech_development['development_score']}/100")
-    logging.info(f"Structure Score: {speech_development['structure']['score']}/100")
-    logging.info(f"Time Utilization Score: {speech_development['time_utilization']['score']}/100")
-    if 'time_distribution' in speech_development['time_utilization']['details']:
-        time_dist = speech_development['time_utilization']['details']['time_distribution']
-        logging.info(f"Time Distribution Quality: {time_dist['quality']}")
-        if 'breakdown' in time_dist and time_dist['breakdown']:
-            logging.info("Time Distribution Breakdown:")
-            breakdown = time_dist['breakdown']
-            logging.info(f"  Introduction: {breakdown.get('introduction_percentage', 0)}% ({breakdown.get('introduction_seconds', 0)} sec)")
-            logging.info(f"  Body: {breakdown.get('body_percentage', 0)}% ({breakdown.get('body_seconds', 0)} sec)")
-            logging.info(f"  Conclusion: {breakdown.get('conclusion_percentage', 0)}% ({breakdown.get('conclusion_seconds', 0)} sec)")
+            # Calculate overall score (sum of all main scores)
+            overall_score = (speech_development_score + 
+                           vocabulary_score + 
+                           effectiveness_score + 
+                           voice_analysis_score + 
+                           proficiency_score)
 
-    # Log speech effectiveness scores
-    logging.info("\nSpeech Effectiveness Analysis:")
-    logging.info(f"Total Score: {speech_effectiveness['total_score']}/20")
-    logging.info(f"Relevance Score: {speech_effectiveness['relevance_score']}/10")
-    logging.info(f"Purpose Score: {speech_effectiveness['purpose_score']}/10")
-
-    # Generate timing feedback
-    timing_feedback = generate_timing_feedback(actual_duration, expected_duration, speech_type)
-    
-    # Get speech type specific feedback
-    speech_type_feedback = ""
-    if (speech_type == "Prepared Speech"):
-        speech_type_feedback = "Prepared speeches should be well-structured with clear introduction, body, and conclusion."
-    elif (speech_type == "Impromptu Speech"):
-        speech_type_feedback = "Impromptu speeches show your ability to think quickly and organize thoughts on the spot."
-    elif (speech_type == "Table Topics"):
-        speech_type_feedback = "Table Topics are meant to be short and concise responses to unexpected questions."
-    else:
-        speech_type_feedback = "Focus on clarity, structure, and engaging delivery in your speech."
-
-    return {
-        "filename": file.filename,
-        "transcription": transcription,
-        "pause_duration": pause_duration,
-        "pause_analysis": pause_analysis,
-        "filler_word_analysis": filler_analysis,
-        "proficiency_scores": {
-            **proficiency_scores,
-            "effectiveness_evaluation": {
-                "effectiveness_score": speech_effectiveness['relevance_score'] + speech_effectiveness['purpose_score'],  # Sum of sub-scores
-                "clear_purpose": {
-                    "score": speech_effectiveness['relevance_score'],  # Already out of 10
-                    "feedback": speech_effectiveness.get('feedback', [])
-                },
-                "achievement_of_purpose": {
-                    "score": speech_effectiveness['purpose_score'],  # Already out of 10
-                    "details": speech_effectiveness.get('details', {})
-                }
+            speech_data = {
+                # Core metrics - ensure all scores are out of 20
+                "speech_development_score": speech_development_score,
+                "vocabulary_evaluation_score": vocabulary_score,
+                "effectiveness_score": effectiveness_score,
+                "voice_analysis_score": voice_analysis_score,
+                "proficiency_score": proficiency_score,
+                "overall_score": overall_score,  # Add the overall score
+                
+                # Basic info
+                "topic": topic,
+                "speech_type": speech_type,
+                "expected_duration": expected_duration,
+                "actual_duration": actual_duration,
+                "audio_url": audio_url,
+                "transcription": transcription,
+                
+                # Metadata
+                "user_id": user_id,
+                "recorded_at": firestore.SERVER_TIMESTAMP
             }
-        },
-        "modulation_analysis": modulation_analysis,
-        "speech_development": speech_development,  # Add this line
-        "speech_details": {
-            "topic": topic,
-            "speech_type": speech_type,
-            "expected_duration": expected_duration,
-            "actual_duration": actual_duration
-        },
-        "speech_effectiveness": speech_effectiveness,
-        "enhanced_analysis": {
-            "timing_compliance": timing_feedback,
-            "speech_type_feedback": speech_type_feedback,
-            "topic_relevance": {
-                "score": proficiency_scores.get('timing_score', 7) * 10,  # Scale to 0-100
-                "feedback": f"Your speech on '{topic}' was analyzed for content and delivery quality."
-            },
-            "recommendations": [
-                f"Practice keeping your {speech_type.lower()} within the {expected_duration} timeframe.",
-                "Focus on reducing filler words to sound more confident.",
-                "Use pauses strategically rather than mid-sentence."
-            ] + speech_development.get("structure", {}).get("feedback", [])  # Add structure feedback
-        }
-    }
+            
+            # Save under the user's document in Firestore
+            speeches_ref.add(speech_data)
+            
+            logging.info(f"Speech data saved for user: {user_id}")
+        except Exception as db_error:
+            logging.error(f"Error storing speech data in Firestore: {str(db_error)}")
+            # Continue execution even if database storage fails
 
-if __name__ == "__main__":
-    import uvicorn
-    logging.basicConfig(level=logging.INFO)
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        # Prepare enhanced response
+        response = {
+            "message": "Speech uploaded and analyzed successfully",
+            "speech_data": speech_data,
+            "filename": unique_filename,
+            "transcription": transcription,
+            "pause_duration": pause_duration,
+            "pause_analysis": pause_analysis,
+            "filler_analysis": filler_analysis,
+            "proficiency_scores": proficiency_scores,
+            "modulation_analysis": modulation_analysis,
+            "speech_development": speech_development,
+            "speech_effectiveness": speech_effectiveness,
+            "vocabulary_evaluation": vocabulary_evaluation,
+            "timing_feedback": timing_feedback,
+            "speech_type_feedback": speech_type_feedback,
+            "audio_url": audio_url,
+            "speech_details": {
+                "topic": topic,
+                "speech_type": speech_type,
+                "expected_duration": expected_duration,
+                "actual_duration": actual_duration
+            },
+            "enhanced_analysis": {
+                "timing_compliance": timing_feedback,
+                "speech_type_feedback": speech_type_feedback,
+                "topic_relevance": {
+                    "score": proficiency_scores.get('timing_score', 7) * 10,
+                    "feedback": f"Your speech on '{topic}' was analyzed for content and delivery quality."
+                },
+                "recommendations": [
+                    f"Practice keeping your {speech_type.lower()} within the {expected_duration} timeframe.",
+                    "Focus on reducing filler words to sound more confident.",
+                    "Use pauses strategically rather than mid-sentence."
+                ] + speech_development.get("structure", {}).get("feedback", [])
+            }
+        }
+
+        # Log serialization attempts for debugging
+        for key, value in response.items():
+            try:
+                json.dumps({key: value})
+            except Exception as e:
+                logging.error(f"Serialization error in field '{key}': {e}")
+                response[key] = str(value)  # Fallback to string conversion
+
+        return JSONResponse(content=jsonable_encoder(response))
+        
+    except Exception as e:
+        logging.error(f"Error processing file: {str(e)}")
+        # Clean up local file if it exists
+        if os.path.exists(file_location):
+            os.remove(file_location)
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")

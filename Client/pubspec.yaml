@@ -17,33 +17,47 @@ environment:
 
 # Dependencies specify other packages that your package needs in order to work.
 dependencies:
+  google_fonts: ^6.1.0
   flutter:
     sdk: flutter
-<<<<<<< Updated upstream
-  firebase_core: ^2.24.2
-=======
-  http: ^1.2.0
+  file_selector: ^0.9.0  # Ensure this is included
+  # Remove the file_picker dependency
+  # file_picker: ^5.5.0
+  audioplayers: ^5.2.1
+  universal_html: ^2.0.7
+  firebase_core: ^3.12.1
+  cloud_firestore: ^5.6.5
+  # go_router: ^14.8.1
+  # provider: ^6.1.2
+  firebase_auth: ^5.5.1
+  # google_sign_in: ^6.3.0
+  firebase_storage: ^12.4.4
   
   
   # Core dependencies
->>>>>>> Stashed changes
   cupertino_icons: ^1.0.8
   provider: ^6.0.5
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.2.0  # Add this line
   path_provider: ^2.1.2
   intl: ^0.19.0
-  firebase_auth: ^4.16.0
+  
+  # UI related
   flutter_svg: ^2.0.9
   fl_chart: ^0.66.0
   lottie: ^2.7.0
   shimmer: ^3.0.0
   cached_network_image: ^3.3.1
-  record: ^5.0.4
-  audioplayers: ^5.2.1
+  
+  # Audio related
+  record: ^5.0.4  # Make sure this is the latest version
+  
+  # Charts and visualization
   syncfusion_flutter_charts: ^24.1.46
+  
+  # Others
   permission_handler: ^11.1.0
   url_launcher: ^6.2.2
-  package_info_plus: ^5.0.1
+  package_info_plus: 8.3.0
   image_picker: ^1.0.4  
 
 dev_dependencies:
@@ -53,7 +67,25 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
   uses-material-design: true
 
+  # To add assets to your application, add an assets section, like this:
   assets:
+    - assets/images/
     - assets/images/Our_Logo.jpg
+    - assets/game/character.png
+    - assets/game/obstacle.png
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/assets-and-images/#resolution-aware
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/assets-and-images/#from-packages
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font.

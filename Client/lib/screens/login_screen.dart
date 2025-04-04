@@ -1,8 +1,10 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:vocallabs_flutter_app/services/auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,31 +17,62 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-
-  // Update login function to connect to Node.js backend
-  void _login() async {
-    final response = await http.post(
-      Uri.parse('http://localhost:5000/api/login'), // Make sure to update the URL to your backend
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login successful')));
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed')));
-    }
-  }
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authService = AuthService();
+      final user = await authService.login(email, password);
+
+      if (user != null) {
+        // Fetch user profile from Firestore
+        final userProfile = await authService.getUserProfile(user.uid);
+
+        if (userProfile != null) {
+          final userName = userProfile['name'] ?? 'User';
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful')),
+          );
+
+          // Pass the user's name to the HomeScreen
+          Navigator.pushReplacementNamed(
+            context,
+            '/home',
+            arguments: {'name': userName},
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -130,10 +163,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                CustomButton(
-                  text: 'Login',
-                  onPressed: _login, // Use the updated login function
-                ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  CustomButton(text: 'Login', onPressed: _login),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -150,26 +183,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSocialLoginButton(
-                      icon: Icons.g_mobiledata,
-                      color: Colors.red,
-                      onPressed: () {
-                        // Add Google login logic
-                      },
-                    ),
-                    const SizedBox(width: 20),
-                    _buildSocialLoginButton(
-                      icon: Icons.facebook,
-                      color: Colors.blue,
-                      onPressed: () {
-                        // Add Facebook login logic
-                      },
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -196,25 +209,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialLoginButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 32, color: color),
       ),
     );
   }

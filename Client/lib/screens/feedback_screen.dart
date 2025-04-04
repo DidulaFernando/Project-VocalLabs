@@ -7,6 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
 import 'package:vocallabs_flutter_app/screens/advanced_analysis.dart'; // Add this import
 import 'package:vocallabs_flutter_app/models/speech_model.dart';
+import 'package:vocallabs_flutter_app/utils/speech_suggestions.dart';
 
 class FeedbackScreen extends StatefulWidget {
   final String transcription;
@@ -214,6 +215,129 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         _apiResponse!['speech_development'].containsKey('topic_relevance');
   }
 
+  List<SpeechSuggestion> _getLowestScoringSuggestions() {
+    if (_apiResponse == null) return [];
+
+    // Create a list of all sub-metrics with their scores
+    List<SpeechSuggestion> allScores = [
+      // Speech Development sub-metrics
+      SpeechSuggestion(
+        category: 'structure',
+        suggestion: SpeechSuggestions.suggestionMap['structure']!,
+        score: (_apiResponse!['speech_development']?['structure']?['score'] ?? 10.0).toDouble(),
+      ),
+      SpeechSuggestion(
+        category: 'timeUtilization',
+        suggestion: SpeechSuggestions.suggestionMap['timeUtilization']!,
+        score: (_apiResponse!['speech_development']?['time_utilization']?['score'] ?? 10.0).toDouble(),
+      ),
+      // Vocabulary sub-metrics
+      SpeechSuggestion(
+        category: 'grammarWordSelection',
+        suggestion: SpeechSuggestions.suggestionMap['grammarWordSelection']!,
+        score: (_apiResponse!['vocabulary_evaluation']?['grammar_word_selection']?['score'] ?? 10.0).toDouble(),
+      ),
+      SpeechSuggestion(
+        category: 'pronunciation',
+        suggestion: SpeechSuggestions.suggestionMap['pronunciation']!,
+        score: (_apiResponse!['vocabulary_evaluation']?['pronunciation']?['score'] ?? 10.0).toDouble(),
+      ),
+      // Effectiveness sub-metrics
+      SpeechSuggestion(
+        category: 'clearPurpose',
+        suggestion: SpeechSuggestions.suggestionMap['clearPurpose']!,
+        score: (_apiResponse!['speech_effectiveness']?['relevance_score'] ?? 10.0).toDouble(),
+      ),
+      SpeechSuggestion(
+        category: 'achievement',
+        suggestion: SpeechSuggestions.suggestionMap['achievement']!,
+        score: (_apiResponse!['speech_effectiveness']?['purpose_score'] ?? 10.0).toDouble(),
+      ),
+      // Voice Analysis sub-metrics
+      SpeechSuggestion(
+        category: 'pitchVolume',
+        suggestion: SpeechSuggestions.suggestionMap['pitchVolume']!,
+        score: (_apiResponse!['modulation_analysis']?['scores']?['pitch_and_volume_score'] ?? 10.0).toDouble(),
+      ),
+      SpeechSuggestion(
+        category: 'emphasis',
+        suggestion: SpeechSuggestions.suggestionMap['emphasis']!,
+        score: (_apiResponse!['modulation_analysis']?['scores']?['emphasis_score'] ?? 10.0).toDouble(),
+      ),
+      // Proficiency sub-metrics
+      SpeechSuggestion(
+        category: 'pause',
+        suggestion: SpeechSuggestions.suggestionMap['pause']!,
+        score: (_apiResponse!['proficiency_scores']?['pause_score'] ?? 10.0).toDouble(),
+      ),
+      SpeechSuggestion(
+        category: 'filler',
+        suggestion: SpeechSuggestions.suggestionMap['filler']!,
+        score: (_apiResponse!['proficiency_scores']?['filler_score'] ?? 10.0).toDouble(),
+      ),
+    ];
+
+    // Sort by score (ascending) and get the lowest 3
+    allScores.sort((a, b) => a.score.compareTo(b.score));
+    return allScores.take(3).toList();
+  }
+
+  // Replace the static suggestions section with this:
+  Widget _buildSuggestionsSection() {
+    final suggestions = _getLowestScoringSuggestions();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Suggestions', style: AppTextStyles.heading2),
+        const SizedBox(height: 12), // Reduced from 16 to 12
+        ...suggestions.map((suggestion) {
+          Color cardColor;
+          if (suggestion.score < 4) {
+            cardColor = AppColors.error.withOpacity(0.1);
+          } else if (suggestion.score < 7) {
+            cardColor = AppColors.warning.withOpacity(0.1);
+          } else {
+            cardColor = AppColors.success.withOpacity(0.1);
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8), // Reduced from 12 to 8
+            child: CardLayout(
+              backgroundColor: cardColor,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Modified padding
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start, // Added for better text alignment
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2), // Added to align icon with text
+                    child: Icon(
+                      Icons.lightbulb_outline,
+                      color: suggestion.score < 4 ? AppColors.error : 
+                             suggestion.score < 7 ? AppColors.warning : 
+                             AppColors.success,
+                      size: 20, // Slightly reduced from default
+                    ),
+                  ),
+                  const SizedBox(width: 12), // Reduced from 16 to 12
+                  Expanded(
+                    child: Text(
+                      suggestion.suggestion,
+                      style: AppTextStyles.body1.copyWith(
+                        fontSize: 14, // Slightly reduced font size
+                        height: 1.4, // Added line height for better readability
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -376,9 +500,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            '82',
-                            style: TextStyle(
+                          Text(
+                            '${_calculateOverallScore().round()}',
+                            style: const TextStyle(
                               fontSize: 64,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primaryBlue,
@@ -550,62 +674,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 const SizedBox(height: 24),
 
                 // Suggestions Section
-                const Text('Suggestions', style: AppTextStyles.heading2),
-                const SizedBox(height: 16),
-                CardLayout(
-                  backgroundColor: AppColors.warning.withOpacity(0.1),
-                  padding: const EdgeInsets.all(16),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.lightbulb_outline, color: AppColors.warning),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Work on reducing filler words like "um" and "like"',
-                          style: AppTextStyles.body1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                CardLayout(
-                  backgroundColor: AppColors.success.withOpacity(0.1),
-                  padding: const EdgeInsets.all(16),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.lightbulb_outline, color: AppColors.success),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Try to vary your volume more for emphasis',
-                          style: AppTextStyles.body1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                CardLayout(
-                  backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
-                  padding: const EdgeInsets.all(16),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline,
-                        color: AppColors.primaryBlue,
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Your pace is excellent, keep it up!',
-                          style: AppTextStyles.body1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
+                _buildSuggestionsSection(),
                 const SizedBox(height: 32),
                 // Action Buttons
                 CustomButton(
@@ -721,6 +790,34 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       ),
     );
   }
-}
 
-//feedback doc
+  // Add this method to calculate overall score
+  double _calculateOverallScore() {
+    if (_apiResponse == null) return 0.0;
+    
+    // Extract scores from API response using the same paths as advanced analysis
+    final speechDevelopment = _apiResponse!['speech_development'] ?? {};
+    final vocabularyData = _apiResponse!['vocabulary_evaluation'] ?? {};
+    final effectivenessData = _apiResponse!['speech_effectiveness'] ?? {};
+    final modulation = _apiResponse!['modulation_analysis']?['scores'] ?? {};
+    final proficiencyData = _apiResponse!['proficiency_scores'] ?? {};
+    
+    // Calculate scores consistently with advanced analysis screen
+    double developmentScore = ((speechDevelopment['structure']?['score'] ?? 0.0) + 
+                             (speechDevelopment['time_utilization']?['score'] ?? 0.0)).toDouble();
+    double vocabularyScore = (vocabularyData['vocabulary_score'] ?? 0.0).toDouble();
+    double effectivenessScore = (effectivenessData['total_score'] ?? 0.0).toDouble();
+    double modulationScore = (modulation['total_score'] ?? 0.0).toDouble();
+    double finalScore = (proficiencyData['final_score'] ?? 0.0).toDouble();
+    
+    // Print debug information
+    print('Development Score: $developmentScore');
+    print('Vocabulary Score: $vocabularyScore');
+    print('Effectiveness Score: $effectivenessScore');
+    print('Modulation Score: $modulationScore');
+    print('Final Score: $finalScore');
+    
+    // Calculate total score
+    return developmentScore + vocabularyScore + effectivenessScore + modulationScore + finalScore;
+  }
+}

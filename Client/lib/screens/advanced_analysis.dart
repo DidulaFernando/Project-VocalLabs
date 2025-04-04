@@ -14,103 +14,128 @@ class AdvancedAnalysisScreen extends StatefulWidget {
 
 class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   final Map<String, bool> _expandedItems = {};
-  late double finalScore;
-  late double pauseScore;
-  late double fillerScore;
+  
+  // Initialize all variables with default values
+  late double finalScore = 0.0;
+  late double pauseScore = 0.0;
+  late double fillerScore = 0.0;
+  
   // Voice modulation variables
-  late double modulationScore;
-  late double pitchVolumeScore;
-  late double emphasisScore;
-  // Vocabulary evaluation variables
-  late double vocabularyScore;
-  late double grammarWordSelectionScore;
-  late double pronunciationScore;
-  // Effectiveness of speech variables
-  late double effectivenessScore;
-  late double clearPurposeScore;
-  late double achievementScore;
-  late String effectivenessRating;
+  late double modulationScore = 0.0;
+  late double pitchVolumeScore = 0.0;
+  late double emphasisScore = 0.0;
+  
+  // Vocabulary evaluation variables - initialize with defaults
+  late double vocabularyScore = 0.0;
+  late double grammarWordSelectionScore = 0.0;
+  late double pronunciationScore = 0.0;
+  
+  // Effectiveness variables
+  late double effectivenessScore = 0.0;
+  late double clearPurposeScore = 0.0;
+  late double achievementScore = 0.0;
+  late String effectivenessRating = 'Not Evaluated';
+  
   // Speech development variables
-  late double developmentScore;
-  late double structureScore;
-  late double timeUtilizationScore;
-  late String timeDistributionQuality;
+  late double developmentScore = 0.0;
+  late double structureScore = 0.0;
+  late double timeUtilizationScore = 0.0;
+  late String timeDistributionQuality = 'good';
 
   @override
   void initState() {
     super.initState();
-    // Initialize scores from widget parameters
-    final scores = widget.proficiencyScores?['proficiency_scores'] ?? {};
-    final modulation =
-        widget.proficiencyScores?['modulation_analysis']?['scores'] ?? {};
-    final vocabulary = widget.proficiencyScores?['vocabulary_evaluation'] ?? {};
-    final grammarWordSelection = vocabulary['grammar_word_selection'] ?? {};
-    final pronunciation = vocabulary['pronunciation'] ?? {};
-    final effectiveness =
-        widget.proficiencyScores?['effectiveness_evaluation'] ?? {};
+    _initializeScores();
+    
+    // Add debug print for overall score
+    print('Overall Score: ${calculateOverallScore()}');
+  }
 
-    // Initialize speech development scores - Fix the data extraction
-    final speechDevelopment =
-        widget.proficiencyScores?['speech_development'] ?? {};
-    final structure = speechDevelopment['structure'] ?? {};
-    final timeUtilization = speechDevelopment['time_utilization'] ?? {};
-
-    // Fix potential null issues in time distribution access
-    Map<String, dynamic> timeDistribution = {};
-    if (timeUtilization is Map &&
-        timeUtilization.containsKey('details') &&
-        timeUtilization['details'] is Map &&
-        timeUtilization['details'].containsKey('time_distribution')) {
-      timeDistribution = timeUtilization['details']['time_distribution'] ?? {};
-    } else {
-      timeDistribution = timeUtilization['time_distribution'] ?? {};
-    }
-
+  void _initializeScores() {
+    // Extract proficiency scores from the correct path in API response
+    final proficiencyData = widget.proficiencyScores?['proficiency_scores'] ?? {};
+    
     // Initialize proficiency scores
-    finalScore = (scores['final_score'] ?? 0.0).toDouble();
-    pauseScore = (scores['pause_score'] ?? 0.0).toDouble();
-    fillerScore = (scores['filler_score'] ?? 0.0).toDouble();
+    finalScore = (proficiencyData['final_score'] ?? 0.0).toDouble();
+    pauseScore = (proficiencyData['pause_score'] ?? 0.0).toDouble();
+    fillerScore = (proficiencyData['filler_score'] ?? 0.0).toDouble();
 
     // Initialize voice modulation scores
+    final modulation = widget.proficiencyScores?['modulation_analysis']?['scores'] ?? {};
     modulationScore = (modulation['total_score'] ?? 0.0).toDouble();
     pitchVolumeScore = (modulation['pitch_and_volume_score'] ?? 0.0).toDouble();
     emphasisScore = (modulation['emphasis_score'] ?? 0.0).toDouble();
 
-    // Initialize vocabulary evaluation scores
-    // Convert from 0-100 scale to 0-20 scale
-    vocabularyScore = (vocabulary['vocabulary_score'] ?? 82.0).toDouble() * 0.2;
-    grammarWordSelectionScore =
-        (grammarWordSelection['score'] ?? 80.0).toDouble() * 0.2;
-    pronunciationScore = (pronunciation['score'] ?? 84.0).toDouble() * 0.2;
-
-    // Initialize effectiveness scores with proper scaling
-    final effectivenessEval = scores['effectiveness_evaluation'] ?? {};
-    effectivenessScore = (effectivenessEval['effectiveness_score'] ?? 0.0).toDouble();
-    clearPurposeScore = (effectivenessEval['clear_purpose']?['score'] ?? 0.0).toDouble();
-    achievementScore = (effectivenessEval['achievement_of_purpose']?['score'] ?? 0.0).toDouble();
+    // Initialize effectiveness scores with proper null checking and type conversion
+    final effectivenessData = widget.proficiencyScores?['speech_effectiveness'] ?? {};
+    effectivenessScore = (effectivenessData['total_score'] ?? 0.0).toDouble();
+    clearPurposeScore = (effectivenessData['relevance_score'] ?? 0.0).toDouble();
+    achievementScore = (effectivenessData['purpose_score'] ?? 0.0).toDouble();
     
-    // Ensure total score is the sum of sub-scores
-    effectivenessScore = clearPurposeScore + achievementScore;
+    // Ensure scores are within valid ranges
+    effectivenessScore = effectivenessScore.clamp(0.0, 20.0);
+    clearPurposeScore = clearPurposeScore.clamp(0.0, 10.0);
+    achievementScore = achievementScore.clamp(0.0, 10.0);
+    
+    // Debug logging
+    print('Effectiveness Scores:');
+    print('Total Score: $effectivenessScore');
+    print('Clear Purpose Score: $clearPurposeScore');
+    print('Achievement Score: $achievementScore');
+    
     effectivenessRating = _getEffectivenessRating(effectivenessScore);
 
+    // Initialize speech development scores
+    final speechDevelopment = widget.proficiencyScores?['speech_development'] ?? {};
+    structureScore = ((speechDevelopment['structure'] ?? {})['score'] ?? 0.0).toDouble();
+    timeUtilizationScore = ((speechDevelopment['time_utilization'] ?? {})['score'] ?? 0.0).toDouble();
+    // Calculate total development score as sum of sub-scores
+    developmentScore = structureScore + timeUtilizationScore;  // Will be out of 20 since each sub-score is out of 10
+
+    // Debug logging for speech development
+    print('Speech Development Scores:');
+    print('Total Score (out of 20): $developmentScore');
+    print('Structure Score (out of 10): $structureScore');
+    print('Time Score (out of 10): $timeUtilizationScore');
+
+    // Initialize vocabulary scores with debug logging
+    final vocabularyData = widget.proficiencyScores?['vocabulary_evaluation'] ?? {};
+    print('Raw Vocabulary Data:');
+    print(vocabularyData);
+    
+    vocabularyScore = (vocabularyData['vocabulary_score'] ?? 0.0).toDouble();
+    grammarWordSelectionScore = (vocabularyData['grammar_word_selection']?['score'] ?? 0.0).toDouble();
+    pronunciationScore = (vocabularyData['pronunciation']?['score'] ?? 0.0).toDouble();
+
+    // Debug log the received scores
+    print('Vocabulary Scores After Processing:');
+    print('Total Score: $vocabularyScore');
+    print('Grammar Score: $grammarWordSelectionScore');
+    print('Pronunciation Score: $pronunciationScore');
+
+    // Validate scores are within correct ranges
+    vocabularyScore = vocabularyScore.clamp(0.0, 20.0);
+    grammarWordSelectionScore = grammarWordSelectionScore.clamp(0.0, 20.0);
+    pronunciationScore = pronunciationScore.clamp(0.0, 20.0);
+
     // Debug logging
-    print('Raw effectiveness data: $effectivenessEval');
-    print('Clear Purpose Score: $clearPurposeScore/10');
-    print('Achievement Score: $achievementScore/10');
-    print('Total Effectiveness Score: $effectivenessScore/20');
+    print('Vocabulary Scores:');
+    print('Total (0-20): $vocabularyScore');
+    print('Grammar (0-20): $grammarWordSelectionScore');
+    print('Pronunciation (0-20): $pronunciationScore');
 
-    // Initialize speech development scores - using actual API values
-    // Convert from 0-100 scale to 0-20 scale
-    developmentScore =
-        (speechDevelopment['development_score'] ?? 80.0).toDouble() * 0.2;
-    structureScore = (structure['score'] ?? 83.0).toDouble() * 0.2;
-    timeUtilizationScore = (timeUtilization['score'] ?? 87.0).toDouble() * 0.2;
-    timeDistributionQuality = timeDistribution['quality'] as String? ?? 'good';
+    // Debug logging
+    print('Initialized Scores:');
+    print('Proficiency - Final: $finalScore, Pause: $pauseScore, Filler: $fillerScore');
+    print('Effectiveness - Total: $effectivenessScore, Clear: $clearPurposeScore, Achievement: $achievementScore');
+    print('Development - Total: $developmentScore, Structure: $structureScore, Time: $timeUtilizationScore');
+    print('Vocabulary - Total: $vocabularyScore, Grammar: $grammarWordSelectionScore, Pronunciation: $pronunciationScore');
+  }
 
-    // Log for debugging
-    print('Speech Development Score: $developmentScore/20');
-    print('Structure Score: $structureScore/20');
-    print('Time Utilization Score: $timeUtilizationScore/20');
+  // Add this method to calculate overall score
+  double calculateOverallScore() {
+    // Each score is out of 20, so summing them up gives a score out of 100
+    return developmentScore + vocabularyScore + effectivenessScore + modulationScore + finalScore;
   }
 
   @override
@@ -147,25 +172,25 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                       _buildMetricItem(
                         icon: Icons.trending_up, // Growth/development icon
                         title: 'Speech Development',
-                        value: '${developmentScore.toStringAsFixed(1)}/20',
+                        value: '${developmentScore.toStringAsFixed(1)}/20',  // Changed to /20
                         description: _getSpeechDevelopmentDescription(
                           developmentScore * 5,
-                        ), // Scale back for description
-                        progress: developmentScore / 20,
+                        ), // Adjust scale for description
+                        progress: developmentScore / 20,  // Adjust progress bar scale
                         color: AppColors.primaryBlue,
                         subMetrics: [
                           SubMetric(
                             icon: Icons.architecture,
                             title: 'Structure of the Speech',
-                            value: '${structureScore.toStringAsFixed(1)}/20',
-                            progress: structureScore / 20,
+                            value: '${structureScore.toStringAsFixed(1)}/10',
+                            progress: structureScore / 10,  // Scale for progress bar (0-1)
                           ),
                           SubMetric(
                             icon: Icons.timer,
                             title: 'Time Duration Utilization',
                             value:
-                                '${timeUtilizationScore.toStringAsFixed(1)}/20',
-                            progress: timeUtilizationScore / 20,
+                                '${timeUtilizationScore.toStringAsFixed(1)}/10',  // Changed from /20 to /10
+                            progress: timeUtilizationScore / 10,  // Changed from /20 to /10
                           ),
                         ],
                       ),
@@ -184,15 +209,15 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                             icon: Icons.spellcheck,
                             title: 'Grammar and Word Selection',
                             value:
-                                '${grammarWordSelectionScore.toStringAsFixed(1)}/20',
-                            progress: grammarWordSelectionScore / 20,
+                                '${grammarWordSelectionScore.toStringAsFixed(1)}/10',  // Changed to /10
+                            progress: grammarWordSelectionScore / 10,  // Scale for 0-10
                           ),
                           SubMetric(
                             icon: Icons.record_voice_over,
                             title: 'Pronunciation',
                             value:
-                                '${pronunciationScore.toStringAsFixed(1)}/20',
-                            progress: pronunciationScore / 20,
+                                '${pronunciationScore.toStringAsFixed(1)}/10',  // Changed to /10
+                            progress: pronunciationScore / 10,  // Scale for 0-10
                           ),
                         ],
                       ),
@@ -258,14 +283,14 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
                           SubMetric(
                             icon: Icons.timer_outlined,
                             title: 'Pause Detection',
-                            value: '${pauseScore.toStringAsFixed(1)}/10',
-                            progress: pauseScore / 10,
+                            value: '${pauseScore.toStringAsFixed(1)}/10', // Now correctly out of 10
+                            progress: pauseScore / 10,  // Now correctly scaled
                           ),
                           SubMetric(
                             icon: Icons.error_outline,
                             title: 'Filler Word Detection',
-                            value: '${fillerScore.toStringAsFixed(1)}/10',
-                            progress: fillerScore / 10,
+                            value: '${fillerScore.toStringAsFixed(1)}/10', // Now correctly out of 10
+                            progress: fillerScore / 10,  // Now correctly scaled
                           ),
                         ],
                       ),
@@ -455,9 +480,10 @@ class _AdvancedAnalysisScreenState extends State<AdvancedAnalysisScreen> {
   }
 
   String _getSpeechDevelopmentDescription(double score) {
-    if (score >= 17) return 'Exceptionally well-developed speech';
-    if (score >= 15) return 'Well-structured speech with effective timing';
-    if (score >= 13) return 'Good speech development';
+    // Score is now on 0-100 scale after multiplication by 10
+    if (score >= 85) return 'Exceptionally well-developed speech';
+    if (score >= 75) return 'Well-structured speech with effective timing';
+    if (score >= 65) return 'Good speech development';
     return 'Basic speech structure';
   }
 

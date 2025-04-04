@@ -15,6 +15,7 @@ class AudioAnalysisService {
     required String speechType,
     required String expectedDuration,
     required String actualDuration,
+    required String userId, // Add this parameter
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/upload/');
@@ -36,6 +37,7 @@ class AudioAnalysisService {
       request.fields['speech_type'] = speechType;
       request.fields['expected_duration'] = expectedDuration;
       request.fields['actual_duration'] = actualDuration;
+      request.fields['user_id'] = userId;
 
       // Send request
       final streamedResponse = await request.send();

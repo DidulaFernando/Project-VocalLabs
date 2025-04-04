@@ -6,7 +6,7 @@ def download_nltk_resources():
         'punkt',
         'stopwords',
         'wordnet',
-        'averaged_perceptron_tagger_eng'
+        'averaged_perceptron_tagger_eng'   
     ]
     
     for resource in resources:

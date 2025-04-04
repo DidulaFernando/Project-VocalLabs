@@ -1,10 +1,10 @@
-// lib/screens/speech_history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/card_layout.dart';
 import 'package:intl/intl.dart';
 import 'package:vocallabs_flutter_app/models/speech_model.dart';
 import 'package:vocallabs_flutter_app/services/speech_storage_service.dart';
+import 'package:vocallabs_flutter_app/screens/speech_history_information.dart';
 
 class SpeechHistoryScreen extends StatefulWidget {
   const SpeechHistoryScreen({super.key});
@@ -30,13 +30,34 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
       _isLoading = true;
     });
     
-    final speeches = await SpeechStorageService.getSpeeches();
-    
-    setState(() {
-      _speechHistory = speeches;
-      _filteredSpeeches = List.from(speeches);
-      _isLoading = false;
-    });
+    try {
+      print('Starting to load speeches...');
+      final speeches = await SpeechStorageService.getSpeeches();
+      print('Loaded ${speeches.length} speeches from service');
+      
+      if (speeches.isEmpty) {
+        print('No speeches returned from service');
+      } else {
+        speeches.forEach((speech) {
+          print('Loaded speech: ${speech.topic} from ${speech.recordedAt}');
+        });
+      }
+      
+      setState(() {
+        _speechHistory = speeches;
+        _filteredSpeeches = List.from(speeches);
+        _isLoading = false;
+      });
+      
+      print('Speech history updated. Count: ${_speechHistory.length}');
+      print('Filtered speeches updated. Count: ${_filteredSpeeches.length}');
+    } catch (e) {
+      print('Error loading speeches: $e');
+      print('Stack trace: ${StackTrace.current}');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterSpeeches(String query) {
@@ -138,12 +159,39 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
     required int score,
   }) {
     final formattedDate = _formatDate(date);
+    final speechModel = _filteredSpeeches.firstWhere(
+      (speech) => speech.topic == title && speech.recordedAt == date,
+    );
+
+    // Detailed debug prints
+    print('\nDebug: Speech Model Details');
+    print('Topic: ${speechModel.topic}');
+    print('Score: ${speechModel.score}');
+    print('Duration: ${speechModel.duration}');
+    print('RecordedAt: ${speechModel.recordedAt}');
+    print('Audio Data Present: ${speechModel.audioData != null}');
+    print('Analysis Data Present: ${speechModel.analysis != null}');
+    if (speechModel.analysis != null) {
+      print('Analysis Structure: ${speechModel.analysis}');
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: CardLayout(
         onTap: () {
-          Navigator.pushNamed(context, '/feedback');
+          if (speechModel.analysis != null) {
+            print('Navigating to speech details with analysis data');
+          } else {
+            print('Warning: No analysis data available for this speech');
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpeechHistoryInformation(
+                speech: speechModel,
+              ),
+            ),
+          );
         },
         child: Row(
           children: [
@@ -193,7 +241,6 @@ class _SpeechHistoryScreenState extends State<SpeechHistoryScreen> {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {

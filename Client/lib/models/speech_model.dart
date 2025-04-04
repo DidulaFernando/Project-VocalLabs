@@ -10,6 +10,7 @@ class SpeechModel {
   int? score;
   String speechType; // Added for speech type (e.g., "Prepared Speech")
   String expectedDuration; // Added for expected duration range (e.g., "5-7 minutes")
+  String? audioUrl; // Add this field
   
   SpeechModel({
     required this.topic,
@@ -21,6 +22,7 @@ class SpeechModel {
     this.score,
     this.speechType = "Prepared Speech", // Default value
     this.expectedDuration = "5–7 minutes", // Default value
+    this.audioUrl, // Add this parameter
   }) : recordedAt = recordedAt ?? DateTime.now();
   
   // Convert to a map for storage
@@ -47,6 +49,7 @@ class SpeechModel {
       score: map['score'] as int?,
       speechType: map['speechType'] as String? ?? "Prepared Speech",
       expectedDuration: map['expectedDuration'] as String? ?? "5–7 minutes",
+      audioUrl: map['audioUrl'] as String?, // Add this parameter
     );
   }
 }

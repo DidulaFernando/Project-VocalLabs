@@ -7,6 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from typing import List, Dict, Tuple
 import spacy
+import re
 
 # Initialize models
 sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -126,16 +127,7 @@ def _check_discourse_markers(text: str) -> float:
     return min(1.0, total_markers / 5)  # Expecting at least 5 markers for full score
 
 def evaluate_speech_effectiveness(speech_text: str, topic: str, expected_duration: str = "5-7 minutes", actual_duration_seconds: int = 0) -> Dict:
-    """
-    Main function to evaluate speech effectiveness based on topic relevance
-    and achievement of purpose.
-    
-    Parameters:
-    speech_text (str): The transcribed speech text
-    topic (str): The topic of the speech
-    expected_duration (str): Expected duration string (e.g., "5–7 minutes")
-    actual_duration_seconds (int): Actual speech duration in seconds
-    """
+    """Main function to evaluate speech effectiveness."""
     # Input validation and logging
     if not speech_text or not topic:
         print("Warning: Empty speech text or topic")
@@ -156,124 +148,245 @@ def evaluate_speech_effectiveness(speech_text: str, topic: str, expected_duratio
     processed_speech = preprocess_text(speech_text)
     processed_topic = preprocess_text(topic)
     
-    # 1. Clear Purpose & Relevance (10 points)
-    semantic_similarity = compute_semantic_similarity(processed_speech, processed_topic)
-    print(f"Semantic similarity score: {semantic_similarity}")
+    # Enhanced topic interpretation for creative speeches
+    topic_variations = generate_topic_variations(topic)
     
-    speech_keywords = set(extract_keywords(processed_speech))
-    topic_keywords = set(extract_keywords(processed_topic))
-    keyword_overlap = len(speech_keywords.intersection(topic_keywords)) / max(len(topic_keywords), 1)
-    print(f"Keyword overlap score: {keyword_overlap}")
-    
-    # Calculate relevance score with more granular scaling
-    # Semantic similarity (0-1) contributes 60% of score
-    # Keyword overlap (0-1) contributes 40% of score
-    raw_score = (semantic_similarity * 0.6) + (keyword_overlap * 0.4)
-    
-    # Improved relevance score scaling (0-10)
-    if raw_score < 0.2:  # Very poor relevance
-        relevance_score = raw_score * 25  # Scales 0-0.2 to 0-5
-    elif raw_score < 0.4:  # Basic relevance (5-6.5 range)
-        relevance_score = 5 + ((raw_score - 0.2) / 0.2) * 1.5
-    elif raw_score < 0.6:  # Good relevance (6.5-8 range)
-        relevance_score = 6.5 + ((raw_score - 0.4) / 0.2) * 1.5
-    elif raw_score < 0.8:  # Very good relevance (8-9 range)
-        relevance_score = 8 + ((raw_score - 0.6) / 0.2)
-    else:  # Excellent relevance (9-10 range)
-        relevance_score = 9 + ((raw_score - 0.8) / 0.2)
-
-    # Ensure score is within bounds
-    relevance_score = max(0, min(10, relevance_score))
-    
-    # 2. Achievement of Purpose (10 points)
+    # Enhanced analysis components
     structure_analysis = analyze_speech_structure(speech_text)
+    narrative_score = analyze_narrative_elements(speech_text)
+    creative_elements = analyze_creative_elements(speech_text, topic)
     
-    # Purpose components with adjusted weights
-    purpose_components = {
-        'structure': 0,
-        'coherence': 0,
-        'topic_alignment': 0,
-        'timing_alignment': 0  # New component
-    }
+    # Calculate enhanced relevance score with creative consideration
+    base_relevance = compute_semantic_similarity(speech_text, topic)
+    creative_relevance = max(
+        compute_semantic_similarity(speech_text, variation)
+        for variation in topic_variations
+    )
     
-    # Structure score (4 points - increased from 3)
-    if structure_analysis['has_intro']:
-        purpose_components['structure'] += 1.0  # Increased from 0.75
-    if structure_analysis['has_body']:
-        purpose_components['structure'] += 2.0  # Increased from 1.5
-    if structure_analysis['has_conclusion']:
-        purpose_components['structure'] += 1.0  # Increased from 0.75
+    # Use the better of direct or creative relevance
+    effective_relevance = max(base_relevance, creative_relevance)
     
-    # Coherence score (2 points - decreased from 2.5)
-    discourse_marker_score = _check_discourse_markers(speech_text)
-    purpose_components['coherence'] = discourse_marker_score * 2.0
+    # Calculate purpose achievement
+    purpose_data = calculate_purpose_achievement(
+        speech_text,
+        structure_analysis,
+        narrative_score,
+        creative_elements
+    )
     
-    # Topic alignment score (3 points - increased from 2.5)
-    # Enhanced alignment calculation using both semantic and keyword metrics
-    topic_alignment = (
-        (semantic_similarity * 0.6) +  # Weighted more towards semantic similarity
-        (keyword_overlap * 0.4)        # Less weight on keyword overlap
-    ) * 3.0  # Scale to 3 points
-    purpose_components['topic_alignment'] = topic_alignment
+    # Scale scores properly (0-10)
+    relevance_score = scale_relevance_score(effective_relevance, creative_elements)
+    final_purpose_score = scale_purpose_score(purpose_data)
     
-    # Timing alignment score (1 point - decreased from 2)
-    try:
-        expected_duration = expected_duration.lower().replace('–', '-')
-        if '-' in expected_duration:
-            parts = expected_duration.split('-')
-            min_minutes = float(parts[0].strip())
-            max_minutes = float(parts[1].split()[0].strip())
-            target_minutes = (min_minutes + max_minutes) / 2
-        else:
-            target_minutes = float(expected_duration.split()[0])
-        
-        # Convert target to seconds and calculate deviation
-        target_seconds = target_minutes * 60
-        if actual_duration_seconds > 0:
-            deviation = abs(actual_duration_seconds - target_seconds) / target_seconds
-            timing_score = max(0, min(1, 1 * (1 - deviation)))  # Scale to 1 point
-        else:
-            timing_score = 0.5  # Default score if duration not provided
-        
-        purpose_components['timing_alignment'] = timing_score
-    except (ValueError, IndexError):
-        purpose_components['timing_alignment'] = 0.5
-
-    # Apply bonus points for exceptional cases (up to 1 additional point)
-    bonus_score = 0
-    if (semantic_similarity > 0.8 and 
-        keyword_overlap > 0.7 and 
-        structure_analysis['has_intro'] and 
-        structure_analysis['has_conclusion'] and 
-        discourse_marker_score > 0.8):
-        bonus_score = min(1, (semantic_similarity + keyword_overlap - 1.5) * 2)
+    # Calculate total score (0-20)
+    total_score = relevance_score + final_purpose_score
     
-    # Calculate final purpose score with bonus
-    purpose_score = sum(purpose_components.values()) + bonus_score
-    purpose_score = max(0, min(10, purpose_score))  # Ensure it's between 0-10
-    
-    print(f"\nPurpose Score Components:")
-    for component, score in purpose_components.items():
-        print(f"{component}: {score:.2f}")
-    
-    print(f"\nFinal scores:")
-    print(f"Relevance score: {relevance_score}/10")
-    print(f"Purpose score: {purpose_score}/10")
+    # Debug logging
+    print(f"\nEffectiveness Scoring Details:")
+    print(f"Base Relevance: {base_relevance:.2f}")
+    print(f"Creative Relevance: {creative_relevance:.2f}")
+    print(f"Final Relevance Score: {relevance_score:.2f}/10")
+    print(f"Final Purpose Score: {final_purpose_score:.2f}/10")
+    print(f"Total Score: {total_score:.2f}/20")
     
     return {
-        'total_score': round(relevance_score + purpose_score, 2),
-        'relevance_score': round(relevance_score, 2),
-        'purpose_score': round(purpose_score, 2),
+        'total_score': float(total_score),  # Ensure float type
+        'relevance_score': float(relevance_score),  # Ensure float type
+        'purpose_score': float(final_purpose_score),  # Ensure float type
         'details': {
-            'semantic_similarity': round(semantic_similarity, 3),
-            'keyword_overlap': round(keyword_overlap, 3),
-            'speech_keywords': list(speech_keywords),
-            'topic_keywords': list(topic_keywords),
-            'structure_analysis': structure_analysis,
-            'purpose_components': {k: round(v, 2) for k, v in purpose_components.items()}
+            'narrative_elements': narrative_score,
+            'creative_elements': creative_elements,
+            'structure': structure_analysis
         },
-        'feedback': generate_feedback(relevance_score, purpose_score, structure_analysis)
+        'feedback': generate_feedback(relevance_score, final_purpose_score, structure_analysis)
     }
+
+def generate_topic_variations(topic: str) -> List[str]:
+    """Generate variations of topic interpretation."""
+    variations = [topic]
+    
+    # Add metaphorical interpretation
+    variations.append(f"metaphor about {topic}")
+    
+    # Add story-based interpretation
+    variations.append(f"story illustrating {topic}")
+    
+    # Add lesson-based interpretation
+    variations.append(f"lesson about {topic}")
+    
+    # Add symbolic interpretation
+    variations.append(f"symbolism of {topic}")
+    
+    return variations
+
+def analyze_narrative_elements(speech_text: str) -> Dict:
+    """Analyze storytelling and narrative elements."""
+    narrative_elements = {
+        'has_story': False,
+        'has_characters': False,
+        'has_metaphor': False,
+        'has_lesson': False,
+        'emotional_connection': 0.0
+    }
+    
+    # Story detection
+    story_markers = ['once', 'when i was', 'there was', 'story']
+    narrative_elements['has_story'] = any(marker in speech_text.lower() for marker in story_markers)
+    
+    # Character detection
+    character_patterns = r'\b(he|she|they|their|someone|people|person)\b'
+    narrative_elements['has_characters'] = bool(re.findall(character_patterns, speech_text.lower()))
+    
+    # Metaphor detection
+    metaphor_markers = ['like', 'as if', 'symbolizes', 'represents', 'means']
+    narrative_elements['has_metaphor'] = any(marker in speech_text.lower() for marker in metaphor_markers)
+    
+    # Lesson/moral detection
+    lesson_markers = ['realize', 'learned', 'understand', 'truth', 'lesson']
+    narrative_elements['has_lesson'] = any(marker in speech_text.lower() for marker in lesson_markers)
+    
+    # Emotional connection scoring
+    emotional_words = ['feel', 'felt', 'heart', 'love', 'fear', 'hope', 'dream', 'scared']
+    emotional_count = sum(speech_text.lower().count(word) for word in emotional_words)
+    narrative_elements['emotional_connection'] = min(1.0, emotional_count / 10)
+    
+    return narrative_elements
+
+def analyze_creative_elements(speech_text: str, topic: str) -> Dict:
+    """Analyze creative and artistic elements."""
+    return {
+        'metaphor_strength': detect_metaphor_strength(speech_text),
+        'artistic_references': detect_artistic_references(speech_text),
+        'creative_structure': analyze_creative_structure(speech_text),
+        'topic_creativity': measure_topic_creativity(speech_text, topic)
+    }
+
+def calculate_purpose_achievement(speech_text: str, structure_analysis: Dict, narrative_score: Dict, creative_elements: Dict) -> Dict:
+    """Calculate purpose achievement score based on various analyses."""
+    base_score = 0.5 * structure_analysis['topic_consistency'] + 0.3 * narrative_score['emotional_connection'] + 0.2 * creative_elements['creative_structure']
+    
+    return {
+        'base_score': base_score,
+        'narrative_quality': narrative_score['emotional_connection'],
+        'audience_engagement': structure_analysis['has_discourse_markers'],
+        'message_clarity': structure_analysis['has_intro'] and structure_analysis['has_conclusion']
+    }
+
+def scale_relevance_score(relevance: float, creative_elements: Dict) -> float:
+    """Scale relevance score with creative consideration."""
+    # Start with a higher base multiplier
+    base_score = relevance * 8  # Changed from 7 to 8
+    
+    # Calculate creative bonus with adjusted weights
+    creative_bonus = sum([
+        creative_elements.get('metaphor_strength', 0) * 2.0,  # Increased weight
+        creative_elements.get('artistic_references', 0) * 1.5,
+        creative_elements.get('creative_structure', 0) * 1.5,
+        creative_elements.get('topic_creativity', 0) * 2.0    # Increased weight
+    ])
+    
+    # Ensure minimum score of 4.0 for complete speeches with any relevance
+    raw_score = base_score + creative_bonus
+    if raw_score > 0:
+        final_score = max(6.0, min(10.0, raw_score))  # Increased minimum score
+    else:
+        final_score = 4.0  # Default minimum score
+    
+    return final_score
+
+def scale_purpose_score(purpose_data: Dict) -> float:
+    """Scale purpose achievement score."""
+    # Start with a higher base multiplier
+    base_score = purpose_data.get('base_score', 0) * 7  # Changed from 6 to 7
+    
+    # Calculate achievement bonus with adjusted weights
+    achievement_bonus = sum([
+        purpose_data.get('narrative_quality', 0) * 2.5,      # Increased weight
+        purpose_data.get('audience_engagement', 0) * 2.0,    # Increased weight
+        purpose_data.get('message_clarity', 0) * 2.0        # Increased weight
+    ])
+    
+    # Ensure minimum score of 4.0 for complete speeches
+    raw_score = base_score + achievement_bonus
+    if raw_score > 0:
+        final_score = max(6.0, min(10.0, raw_score))  # Increased minimum score
+    else:
+        final_score = 4.0  # Default minimum score
+    
+    return final_score
+
+def detect_metaphor_strength(text: str) -> float:
+    """Detect and score metaphorical language."""
+    metaphor_markers = [
+        'like', 'as', 'symbolizes', 'represents', 'means',
+        'metaphor', 'comparison', 'similar to', 'just as',
+        'reflects', 'mirrors', 'parallels'
+    ]
+    
+    literary_devices = [
+        'rose', 'journey', 'path', 'light', 'darkness',
+        'heart', 'bridge', 'door', 'window', 'book'
+    ]
+    
+    metaphor_count = sum(text.lower().count(marker) for marker in metaphor_markers)
+    literary_count = sum(text.lower().count(device) for device in literary_devices)
+    
+    # Calculate score (0-1)
+    score = min(1.0, (metaphor_count * 0.2) + (literary_count * 0.15))
+    return score
+
+def detect_artistic_references(text: str) -> float:
+    """Detect and score artistic/literary references."""
+    artistic_elements = [
+        'book', 'story', 'author', 'art', 'music',
+        'poem', 'novel', 'character', 'literature',
+        'culture', 'creative', 'artistic'
+    ]
+    
+    reference_count = sum(text.lower().count(element) for element in artistic_elements)
+    return min(1.0, reference_count * 0.2)
+
+def analyze_creative_structure(text: str) -> float:
+    """Analyze creative speech structure."""
+    # Check for storytelling elements
+    story_elements = [
+        'once', 'when', 'story', 'then', 'finally',
+        'first', 'next', 'later', 'eventually',
+        'in the end', 'learned', 'realized'
+    ]
+    
+    # Count story elements
+    element_count = sum(text.lower().count(element) for element in story_elements)
+    
+    # Check for narrative flow
+    sentences = sent_tokenize(text)
+    has_intro = any('introduce' in s.lower() or 'begin' in s.lower() for s in sentences[:2])
+    has_conclusion = any('conclusion' in s.lower() or 'finally' in s.lower() for s in sentences[-2:])
+    
+    # Calculate score (0-1)
+    structure_score = min(1.0, (element_count * 0.15) + (has_intro * 0.3) + (has_conclusion * 0.3))
+    return structure_score
+
+def measure_topic_creativity(text: str, topic: str) -> float:
+    """Measure creative interpretation of topic."""
+    # Look for creative elements related to the topic
+    topic_words = set(word_tokenize(topic.lower()))
+    text_words = set(word_tokenize(text.lower()))
+    
+    # Direct topic mentions
+    direct_mentions = len(topic_words.intersection(text_words))
+    
+    # Look for creative interpretations
+    interpretive_markers = [
+        'meaning', 'represents', 'symbolizes', 'teaches',
+        'shows', 'illustrates', 'demonstrates', 'reflects'
+    ]
+    
+    creative_count = sum(text.lower().count(marker) for marker in interpretive_markers)
+    
+    # Calculate score (0-1) - reward both direct and creative usage
+    score = min(1.0, (direct_mentions * 0.2) + (creative_count * 0.25))
+    return score
 
 def generate_feedback(relevance_score: float, purpose_score: float, structure: Dict) -> List[str]:
     """Generate specific feedback based on the analysis results."""

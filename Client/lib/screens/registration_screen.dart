@@ -4,6 +4,7 @@ import 'package:vocallabs_flutter_app/utils/constants.dart';
 import 'package:vocallabs_flutter_app/widgets/custom_button.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:vocallabs_flutter_app/services/auth.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -37,11 +38,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    if (name.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty) {
-      // Show error message
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
@@ -49,45 +46,36 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (password != confirmPassword) {
-      // Show error message
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
       return;
     }
 
-    // Prepare data for submission
-    final registrationData = {
-      'name': name,
-      'email': email,
-      'password': password,
-    };
-
-    // Show loading indicator
     setState(() {
       _isLoading = true;
     });
 
-    // Make a request to the backend
-    final response = await http.post(
-      Uri.parse('http://10.0.2.2:8000/register/'), // Update the URL
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(registrationData),
-    );
+    try {
+      final authService = AuthService();
+      final user = await authService.signUp(name, email, password);
 
-    // Hide loading indicator
-    setState(() {
-      _isLoading = false;
-    });
+      if (user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful')),
+        );
 
-    if (response.statusCode == 200) {
-      // Navigate to the next screen or show success message
-      Navigator.pushReplacementNamed(context, '/startup');
-    } else {
-      // Show error message
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Registration failed')));
+        // Navigate to the login page instead of the profile page
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
